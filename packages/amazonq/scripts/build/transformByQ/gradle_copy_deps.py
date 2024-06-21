@@ -3,7 +3,7 @@ import sys
 import subprocess
 import re
 from pathlib import Path
- 
+
 use_offline_dependency = """
 final addDownloadedDependenciesRepository(rooted, receiver) {
   receiver.repositories.maven {

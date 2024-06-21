@@ -463,7 +463,7 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
         })
         throw new ZipExceedsSizeLimitError()
     }
-    console.log('zip path = ' + tempFilePath) // TO-DO: remove
+    getLogger().info(`CodeTransformation: zip path = ${tempFilePath}`)
     return tempFilePath
 }
 

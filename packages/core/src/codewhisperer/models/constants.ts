@@ -565,11 +565,13 @@ export const changesAppliedChatMessage = 'I applied the changes to your project.
 
 export const changesAppliedNotification = 'Amazon Q applied the changes to your project.'
 
+// TO-DO: get text approved
 export const noOpenProjectsFoundChatMessage =
-    'Sorry, I could not find a project that I can upgrade. Currently, I can only upgrade Java 8 or Java 11 projects built on Maven. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
+    'Sorry, I could not find a project that I can upgrade. Currently, I can only upgrade Java 8 or Java 11 projects built on Maven or Gradle. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
 
+// TO-DO: get text approved
 export const noJavaProjectsFoundChatMessage =
-    'Sorry, I could not find a project that I can upgrade. Currently, I can only upgrade Java 8 or Java 11 projects built on Maven. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
+    'Sorry, I could not find a project that I can upgrade. Currently, I can only upgrade Java 8 or Java 11 projects built on Maven or Gradle. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
 
 export const linkToDocsHome = 'https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html'
 
@@ -590,9 +592,9 @@ export const cleanInstallErrorChatMessage =
 export const cleanInstallErrorNotification =
     'Amazon Q could not run the Maven clean install command to build your project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'
 
-// TO-DO: get this text approved, including the link
+// TO-DO: get text approved
 export const gradleBuildErrorNotification =
-    'Amazon Q could not build your Gradle project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'
+    'Amazon Q could not build your Gradle project, so any 1P dependencies were not copied over. The transformation is still proceeding as it may succeed if your project does not use any 1P dependencies, but you can also stop the job and address the issues shown in the build-logs.txt file if you know that your project uses 1P dependencies.'
 
 export const gradleBuildErrorChatMessage =
     'Sorry, I could not build your Gradle project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'

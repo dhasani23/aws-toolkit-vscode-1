@@ -15,7 +15,6 @@ import { writeLogs } from './transformFileHandler'
 import { throwIfCancelled } from './transformApiHandler'
 import { globals } from '../../../shared'
 import * as os from 'os'
-import path from 'path'
 
 // run 'install' with either 'mvnw.cmd', './mvnw', or 'mvn' (if wrapper exists, we use that, otherwise we use regular 'mvn')
 function installMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath: string) {
@@ -212,16 +211,9 @@ async function getPythonExecutable() {
 export async function prepareGradleProjectDependencies() {
     try {
         transformByQState.appendToErrorLog(`Running gradle_copy_deps.py to copy Gradle project dependencies`)
-        // let scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/gradle_copy_deps.py')
-        // if (os.platform() === 'win32') {
-        //     scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/windows_gradle_copy_deps.py')
-        // }
         let scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/gradle_copy_deps.py')
         if (os.platform() === 'win32') {
-            scriptPath = path.join(
-                globals.context.asAbsolutePath('scripts/build/transformByQ'),
-                'windows_gradle_copy_deps.py'
-            )
+            scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/windows_gradle_copy_deps.py')
         }
         const args = [`${scriptPath}`, `${transformByQState.getProjectPath()}`]
         let environment = process.env
