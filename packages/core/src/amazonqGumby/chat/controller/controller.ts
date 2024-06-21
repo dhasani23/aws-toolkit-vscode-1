@@ -34,7 +34,7 @@ import {
     JobStartError,
     ModuleUploadError,
     NoJavaProjectsFoundError,
-    NoMavenJavaProjectsFoundError,
+    NoMavenOrGradleJavaProjectsFoundError,
 } from '../../errors'
 import * as CodeWhispererConstants from '../../../codewhisperer/models/constants'
 import MessengerUtils, { ButtonActions, GumbyCommands } from './messenger/messengerUtils'
@@ -50,8 +50,8 @@ import { CodeTransformTelemetryState } from '../../telemetry/codeTransformTeleme
 import { getAuthType } from '../../../codewhisperer/service/transformByQ/transformApiHandler'
 import DependencyVersions from '../../models/dependencies'
 import { getStringHash } from '../../../shared/utilities/textUtilities'
-// These events can be interactions within the chat,
-// or elsewhere in the IDE
+import { checkBuildSystem } from '../../../codewhisperer/service/transformByQ/transformFileHandler'
+// These events can be interactions within the chat or elsewhere in the IDE
 export interface ChatControllerEventEmitters {
     readonly transformSelected: vscode.EventEmitter<any>
     readonly tabOpened: vscode.EventEmitter<any>
@@ -242,8 +242,8 @@ export class GumbyController {
         } catch (err: any) {
             if (err instanceof NoJavaProjectsFoundError) {
                 this.messenger.sendUnrecoverableErrorResponse('no-java-project-found', message.tabID)
-            } else if (err instanceof NoMavenJavaProjectsFoundError) {
-                this.messenger.sendUnrecoverableErrorResponse('no-maven-java-project-found', message.tabID)
+            } else if (err instanceof NoMavenOrGradleJavaProjectsFoundError) {
+                this.messenger.sendUnrecoverableErrorResponse('no-maven-or-gradle-java-project-found', message.tabID)
             } else {
                 this.messenger.sendUnrecoverableErrorResponse('no-project-found', message.tabID)
             }
@@ -316,7 +316,9 @@ export class GumbyController {
             return
         }
 
-        await processTransformFormInput(pathToProject, fromJDKVersion, toJDKVersion)
+        const buildSystem = await checkBuildSystem(pathToProject)
+        getLogger().info(`Selected project uses build system = ${buildSystem}`)
+        await processTransformFormInput(pathToProject, fromJDKVersion, toJDKVersion, buildSystem)
         await this.validateBuildWithPromptOnError(message)
     }
 
@@ -329,6 +331,8 @@ export class GumbyController {
         }
 
         const projectPath = transformByQState.getProjectPath()
+        // TO-DO: add a field to hold the build system (Maven or Gradle)
+        // Done
         telemetry.codeTransform_jobStartedCompleteFromPopupDialog.emit({
             codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
             codeTransformJavaSourceVersionsAllowed: JDKToTelemetryValue(
@@ -346,6 +350,7 @@ export class GumbyController {
             await compileProject()
         } catch (err: any) {
             this.messenger.sendUnrecoverableErrorResponse('could-not-compile-project', message.tabID)
+            transformByQState.resetErrorLog()
             // reset state to allow "Start a new transformation" button to work
             this.sessionStorage.getSession().conversationState = ConversationState.IDLE
             throw err

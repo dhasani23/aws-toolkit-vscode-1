@@ -8,7 +8,7 @@ import * as vscode from 'vscode'
 import * as fs from 'fs-extra'
 import * as sinon from 'sinon'
 import { makeTemporaryToolkitFolder } from '../../../shared/filesystemUtilities'
-import { transformByQState, TransformByQStoppedError } from '../../../codewhisperer/models/model'
+import { BuildSystem, transformByQState, TransformByQStoppedError } from '../../../codewhisperer/models/model'
 import { stopTransformByQ } from '../../../codewhisperer/commands/startTransformByQ'
 import { HttpResponse } from 'aws-sdk'
 import * as codeWhisperer from '../../../codewhisperer/client/codewhisperer'
@@ -19,7 +19,7 @@ import AdmZip from 'adm-zip'
 import { createTestWorkspaceFolder, toFile } from '../../testUtil'
 import {
     NoJavaProjectsFoundError,
-    NoMavenJavaProjectsFoundError,
+    NoMavenOrGradleJavaProjectsFoundError,
     NoOpenProjectsError,
 } from '../../../amazonqGumby/errors'
 import {
@@ -36,6 +36,7 @@ import {
     getOpenProjects,
 } from '../../../codewhisperer/service/transformByQ/transformProjectValidationHandler'
 import { TransformationCandidateProject, ZipManifest } from '../../../codewhisperer/models/model'
+import { shouldIncludeInZip } from '../../../codewhisperer/service/transformByQ/transformFileHandler'
 
 describe('transformByQ', function () {
     let tempDir: string
@@ -84,7 +85,7 @@ describe('transformByQ', function () {
         assert.strictEqual(transformByQState.getStatus(), 'Cancelled')
     })
 
-    it('WHEN validateProjectSelection called on non-Java project THEN throws error', async function () {
+    it('WHEN validateOpenProjects called on non-Java project THEN throws error', async function () {
         const dummyCandidateProjects: TransformationCandidateProject[] = [
             {
                 name: 'SampleProject',
@@ -96,7 +97,7 @@ describe('transformByQ', function () {
         }, NoJavaProjectsFoundError)
     })
 
-    it('WHEN validateProjectSelection called on Java project with no pom.xml THEN throws error', async function () {
+    it('WHEN validateOpenProjects called on Java project with no pom.xml THEN throws error', async function () {
         const folder = await createTestWorkspaceFolder()
         const dummyPath = path.join(folder.uri.fsPath, 'DummyFile.java')
         await toFile('', dummyPath)
@@ -111,7 +112,25 @@ describe('transformByQ', function () {
 
         await assert.rejects(async () => {
             await validateOpenProjects(dummyCandidateProjects)
-        }, NoMavenJavaProjectsFoundError)
+        }, NoMavenOrGradleJavaProjectsFoundError)
+    })
+
+    it('WHEN validateOpenProjects called on Java project with a build.gradle THEN does not throw error', async function () {
+        const folder = await createTestWorkspaceFolder()
+        const dummyPath = path.join(folder.uri.fsPath, 'build.gradle')
+        await toFile('', dummyPath)
+        const findFilesStub = sinon.stub(vscode.workspace, 'findFiles')
+        findFilesStub.onFirstCall().resolves([folder.uri])
+        const dummyCandidateProjects: TransformationCandidateProject[] = [
+            {
+                name: 'SampleProject',
+                path: folder.uri.fsPath,
+            },
+        ]
+
+        await assert.doesNotReject(async () => {
+            await validateOpenProjects(dummyCandidateProjects)
+        })
     })
 
     it('WHEN getOpenProjects called on non-empty workspace THEN returns open projects', async function () {
@@ -201,6 +220,19 @@ describe('transformByQ', function () {
         }
         assert.deepStrictEqual(actual, expected)
     })
+
+    it(`WHEN maven project is zipped THEN src directory is included`),
+        function () {
+            transformByQState.setBuildSystem(BuildSystem.Maven)
+            assert.equal(shouldIncludeInZip('src'), false)
+        }
+
+    it(`WHEN gradle project is zipped THEN build and .gradle directories are excluded`),
+        function () {
+            transformByQState.setBuildSystem(BuildSystem.Gradle)
+            assert.equal(shouldIncludeInZip('.gradle'), false)
+            assert.equal(shouldIncludeInZip('build'), false)
+        }
 
     it(`WHEN zip created THEN dependencies contains no .sha1 or .repositories files`, async function () {
         const m2Folders = [

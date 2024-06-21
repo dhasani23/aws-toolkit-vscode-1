@@ -18,6 +18,7 @@ import {
     TransformationCandidateProject,
     ZipManifest,
     TransformByQStatus,
+    BuildSystem,
 } from '../models/model'
 import { convertDateToTimestamp } from '../../shared/utilities/textUtilities'
 import {
@@ -39,6 +40,7 @@ import {
 import { getOpenProjects, validateOpenProjects } from '../service/transformByQ/transformProjectValidationHandler'
 import {
     getVersionData,
+    prepareMavenProjectDependencies,
     prepareProjectDependencies,
     runMavenDependencyUpdateCommands,
 } from '../service/transformByQ/transformMavenHandler'
@@ -58,11 +60,10 @@ import {
 import { ChatSessionManager } from '../../amazonqGumby/chat/storages/chatSession'
 import {
     getCodeIssueSnippetFromPom,
-    getDependenciesFolderInfo,
+    createMavenDependenciesFolderInfo,
     getJsonValuesFromManifestFile,
     highlightPomIssueInProject,
     parseVersionsListFromPomFile,
-    writeLogs,
 } from '../service/transformByQ/transformFileHandler'
 import { sleep } from '../../shared/utilities/timeoutUtils'
 import DependencyVersions from '../../amazonqGumby/models/dependencies'
@@ -72,50 +73,65 @@ import { HumanInTheLoopManager } from '../service/transformByQ/humanInTheLoopMan
 export async function processTransformFormInput(
     pathToProject: string,
     fromJDKVersion: JDKVersion,
-    toJDKVersion: JDKVersion
+    toJDKVersion: JDKVersion,
+    buildSystem: BuildSystem
 ) {
     transformByQState.setProjectName(path.basename(pathToProject))
     transformByQState.setProjectPath(pathToProject)
     transformByQState.setSourceJDKVersion(fromJDKVersion)
     transformByQState.setTargetJDKVersion(toJDKVersion)
+    transformByQState.setBuildSystem(buildSystem)
 }
 
-async function setMaven() {
-    let mavenWrapperExecutableName = os.platform() === 'win32' ? 'mvnw.cmd' : 'mvnw'
-    const mavenWrapperExecutablePath = path.join(transformByQState.getProjectPath(), mavenWrapperExecutableName)
-    if (fs.existsSync(mavenWrapperExecutablePath)) {
-        if (mavenWrapperExecutableName === 'mvnw') {
-            mavenWrapperExecutableName = './mvnw' // add the './' for non-Windows
-        } else if (mavenWrapperExecutableName === 'mvnw.cmd') {
-            mavenWrapperExecutableName = '.\\mvnw.cmd' // add the '.\' for Windows
-        }
-        transformByQState.setMavenName(mavenWrapperExecutableName)
-    } else {
-        transformByQState.setMavenName('mvn')
+// used to set the command we will use with the '-v' flag to get the JDK version on user's JAVA_HOME,
+// so that we can decide whether or not we need to prompt them for the correct/matching JAVA_HOME
+async function setBuildSystemCommand() {
+    // at this point, one of these must be true
+    let wrapperExecutableName = ''
+    if (transformByQState.getBuildSystem() === BuildSystem.Maven) {
+        wrapperExecutableName = os.platform() === 'win32' ? 'mvnw.cmd' : 'mvnw'
+    } else if (transformByQState.getBuildSystem() === BuildSystem.Gradle) {
+        wrapperExecutableName = os.platform() === 'win32' ? 'gradlew.bat' : 'gradlew'
     }
-    getLogger().info(`CodeTransformation: using Maven ${transformByQState.getMavenName()}`)
+
+    const wrapperExecutablePath = path.join(transformByQState.getProjectPath(), wrapperExecutableName)
+    if (fs.existsSync(wrapperExecutablePath)) {
+        if (wrapperExecutableName === 'mvnw' || wrapperExecutableName === 'gradlew') {
+            wrapperExecutableName = `./${wrapperExecutableName}` // add the './' for non-Windows
+        } else if (wrapperExecutableName === 'mvnw.cmd' || wrapperExecutableName === 'gradlew.bat') {
+            wrapperExecutableName = `.\\${wrapperExecutableName}` // add the '.\' for Windows
+        }
+        transformByQState.setBuildSystemCommand(wrapperExecutableName)
+    } else {
+        transformByQState.setBuildSystemCommand(
+            transformByQState.getBuildSystem() === BuildSystem.Maven ? 'mvn' : 'gradle'
+        )
+    }
+    getLogger().info(`CodeTransformation: set build system command to ${transformByQState.getBuildSystemCommand()}`)
 }
 
 async function validateJavaHome(): Promise<boolean> {
     const versionData = await getVersionData()
-    let javaVersionUsedByMaven = versionData[1]
-    if (javaVersionUsedByMaven !== undefined) {
-        javaVersionUsedByMaven = javaVersionUsedByMaven.slice(0, 3)
-        if (javaVersionUsedByMaven === '1.8') {
-            javaVersionUsedByMaven = JDKVersion.JDK8
-        } else if (javaVersionUsedByMaven === '11.') {
-            javaVersionUsedByMaven = JDKVersion.JDK11
+    let javaVersionUsedByBuildSystem = versionData[1]
+    if (javaVersionUsedByBuildSystem !== undefined) {
+        javaVersionUsedByBuildSystem = javaVersionUsedByBuildSystem.slice(0, 3)
+        if (javaVersionUsedByBuildSystem === '1.8') {
+            javaVersionUsedByBuildSystem = JDKVersion.JDK8
+        } else if (javaVersionUsedByBuildSystem === '11.') {
+            javaVersionUsedByBuildSystem = JDKVersion.JDK11
         }
     }
-    if (javaVersionUsedByMaven !== transformByQState.getSourceJDKVersion()) {
+    if (javaVersionUsedByBuildSystem !== transformByQState.getSourceJDKVersion()) {
+        // TO-DO: make codeTransformPreValidationError more generic
+        // Done
         telemetry.codeTransform_isDoubleClickedToTriggerInvalidProject.emit({
             codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
             codeTransformPreValidationError: 'ProjectJDKDiffersFromMavenJDK',
             result: MetadataResult.Fail,
-            reason: `${transformByQState.getSourceJDKVersion()} (project) - ${javaVersionUsedByMaven} (maven)`,
+            reason: `${transformByQState.getSourceJDKVersion()} (project) - ${javaVersionUsedByBuildSystem} (${transformByQState.getBuildSystem()})`,
         })
 
-        // means either javaVersionUsedByMaven is undefined or it does not match the project JDK
+        // means either javaVersionUsedByBuildSystem is undefined or it does not match the project JDK
         return false
     }
 
@@ -123,7 +139,7 @@ async function validateJavaHome(): Promise<boolean> {
 }
 
 export async function validateCanCompileProject() {
-    await setMaven()
+    await setBuildSystemCommand()
     const javaHomeFound = await validateJavaHome()
     if (!javaHomeFound) {
         throw new JavaHomeNotSetError()
@@ -132,15 +148,15 @@ export async function validateCanCompileProject() {
 
 export async function compileProject() {
     try {
-        const dependenciesFolder: FolderInfo = getDependenciesFolderInfo()
-        transformByQState.setDependencyFolderInfo(dependenciesFolder)
-        const modulePath = transformByQState.getProjectPath()
-        await prepareProjectDependencies(dependenciesFolder, modulePath)
+        let dependenciesFolder: FolderInfo | undefined = undefined
+        // only used for Maven projects; for Gradle, we put the dependencies in same parent directory as source code
+        if (transformByQState.getBuildSystem() === BuildSystem.Maven) {
+            dependenciesFolder = createMavenDependenciesFolderInfo()
+            transformByQState.setDependencyFolderInfo(dependenciesFolder)
+        }
+        await prepareProjectDependencies(dependenciesFolder, transformByQState.getProjectPath())
     } catch (err) {
-        // open build-logs.txt file to show user error logs
-        const logFilePath = await writeLogs()
-        const doc = await vscode.workspace.openTextDocument(logFilePath)
-        await vscode.window.showTextDocument(doc)
+        getLogger().error('CodeTransformation: compileProject failed')
         throw err
     }
 }
@@ -232,7 +248,7 @@ export async function preTransformationUploadCode() {
     throwIfCancelled()
     try {
         payloadFilePath = await zipCode({
-            dependenciesFolder: transformByQState.getDependencyFolderInfo()!,
+            dependenciesFolder: transformByQState.getDependencyFolderInfo(), // will be undefined for Gradle projects
             modulePath: transformByQState.getProjectPath(),
             zipManifest: new ZipManifest(),
         })
@@ -408,7 +424,9 @@ export async function finishHumanInTheLoop(selectedDependency?: string) {
 
         // 7) We need to take that output of maven and use CreateUploadUrl
         const uploadFolderInfo = humanInTheLoopManager.getUploadFolderInfo()
-        await prepareProjectDependencies(uploadFolderInfo, uploadFolderInfo.path)
+        // TO-DO: right now, assumes only Maven projects can trigger HIL -- confirm backend change to support this is done
+        // eventually, this can change to prepareProjectDependencies when Gradle projects work with HIL
+        await prepareMavenProjectDependencies(uploadFolderInfo, uploadFolderInfo.path)
         // zipCode side effects deletes the uploadFolderInfo right away
         const uploadPayloadFilePath = await zipCode({
             dependenciesFolder: uploadFolderInfo,
@@ -620,10 +638,12 @@ export async function postTransformationJob() {
     const resultStatusMessage = transformByQState.getStatus()
 
     const versionInfo = await getVersionData()
-    const mavenVersionInfoMessage = `${versionInfo[0]} (${transformByQState.getMavenName()})`
-    const javaVersionInfoMessage = `${versionInfo[1]} (${transformByQState.getMavenName()})`
+    const mavenVersionInfoMessage = `${versionInfo[0]} (${transformByQState.getBuildSystemCommand()})`
+    const javaVersionInfoMessage = `${versionInfo[1]} (${transformByQState.getBuildSystemCommand()})`
 
     // Note: IntelliJ implementation of ResultStatusMessage includes additional metadata such as jobId.
+    // TO-DO: rename codeTransformLocalMavenVersion to codeTransformLocalBuildSystemVersion
+    // Done
     telemetry.codeTransform_totalRunTime.emit({
         codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
         codeTransformResultStatusMessage: resultStatusMessage,
@@ -650,7 +670,8 @@ export async function postTransformationJob() {
     }
 
     if (transformByQState.getPayloadFilePath() !== '') {
-        fs.rmSync(transformByQState.getPayloadFilePath(), { recursive: true, force: true }) // delete ZIP if it exists
+        // TO-DO: uncomment this out for public toolkit, but keep it commented out for AIG custom build
+        // fs.rmSync(transformByQState.getPayloadFilePath(), { recursive: true, force: true }) // delete ZIP if it exists
     }
 }
 

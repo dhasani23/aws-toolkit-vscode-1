@@ -309,9 +309,9 @@ export enum JDKVersion {
 }
 
 export enum BuildSystem {
-    Maven = 'Maven',
-    Gradle = 'Gradle',
-    Unknown = 'Unknown',
+    Maven = 'MAVEN',
+    Gradle = 'GRADLE',
+    Unknown = 'UNKNOWN',
 }
 
 export class ZipManifest {
@@ -319,8 +319,9 @@ export class ZipManifest {
     dependenciesRoot: string | undefined = 'dependencies/'
     buildLogs: string = 'build-logs.txt'
     version: string = '1.0'
-    hilCapabilities: string[] = ['HIL_1pDependency_VersionUpgrade']
+    hilCapabilities: string[] | undefined = ['HIL_1pDependency_VersionUpgrade']
     transformCapabilities: string[] = ['EXPLAINABILITY_V1']
+    buildSystem: BuildSystem | undefined = undefined // TO-DO: a project may contain both a pom.xml and a build.gradle; in which case need to ask customer
 }
 
 export interface IHilZipManifestParams {
@@ -379,6 +380,8 @@ export class TransformByQState {
 
     private targetJDKVersion: JDKVersion = JDKVersion.JDK17
 
+    private buildSystem: BuildSystem | undefined = undefined
+
     private planFilePath: string = ''
     private summaryFilePath: string = ''
 
@@ -397,7 +400,7 @@ export class TransformByQState {
 
     private errorLog: string = ''
 
-    private mavenName: string = ''
+    private buildSystemCommand: string = ''
 
     private javaHome: string | undefined = undefined
 
@@ -457,6 +460,10 @@ export class TransformByQState {
         return this.targetJDKVersion
     }
 
+    public getBuildSystem() {
+        return this.buildSystem
+    }
+
     public getStatus() {
         return this.transformByQState
     }
@@ -501,8 +508,8 @@ export class TransformByQState {
         return this.errorLog
     }
 
-    public getMavenName() {
-        return this.mavenName
+    public getBuildSystemCommand() {
+        return this.buildSystemCommand
     }
 
     public getJavaHome() {
@@ -513,7 +520,7 @@ export class TransformByQState {
         return this.chatControllers
     }
 
-    public getDependencyFolderInfo(): FolderInfo | undefined {
+    public getDependencyFolderInfo() {
         return this.dependencyFolderInfo
     }
 
@@ -577,6 +584,10 @@ export class TransformByQState {
         this.targetJDKVersion = version
     }
 
+    public setBuildSystem(buildSystem: BuildSystem) {
+        this.buildSystem = buildSystem
+    }
+
     public setPlanFilePath(filePath: string) {
         this.planFilePath = filePath
     }
@@ -613,8 +624,8 @@ export class TransformByQState {
         this.jobFailureErrorChatMessage = errorChatMessage
     }
 
-    public setMavenName(mavenName: string) {
-        this.mavenName = mavenName
+    public setBuildSystemCommand(command: string) {
+        this.buildSystemCommand = command
     }
 
     public setJavaHome(javaHome: string) {
@@ -643,6 +654,10 @@ export class TransformByQState {
 
     public resetSessionJobHistory() {
         sessionJobHistory = {}
+    }
+
+    public resetErrorLog() {
+        this.errorLog = ''
     }
 
     public setJobDefaults() {

@@ -13,7 +13,7 @@ import { BuildSystem, FolderInfo, transformByQState } from '../../models/model'
 import { IManifestFile } from '../../../amazonqFeatureDev/models'
 import { fsCommon } from '../../../srcShared/fs'
 
-export function getDependenciesFolderInfo(): FolderInfo {
+export function createMavenDependenciesFolderInfo(): FolderInfo {
     const dependencyFolderName = `${CodeWhispererConstants.dependencyFolderName}${Date.now()}`
     const dependencyFolderPath = path.join(os.tmpdir(), dependencyFolderName)
     return {
@@ -28,12 +28,35 @@ export async function writeLogs() {
     return logFilePath
 }
 
+// TO-DO: work with PM/UX to handle case where there is both a pom.xml and a build.gradle / build.gradle.kts
+// AIG will not have this issue; but keep this in mind
 export async function checkBuildSystem(projectPath: string) {
     const mavenBuildFilePath = path.join(projectPath, 'pom.xml')
     if (existsSync(mavenBuildFilePath)) {
         return BuildSystem.Maven
     }
+    const gradleBuildFilePath = path.join(projectPath, 'build.gradle')
+    if (existsSync(gradleBuildFilePath)) {
+        return BuildSystem.Gradle
+    }
+    const gradleKtsBuildFilePath = path.join(projectPath, 'build.gradle.kts')
+    if (existsSync(gradleKtsBuildFilePath)) {
+        return BuildSystem.Gradle
+    }
     return BuildSystem.Unknown
+}
+
+// for Maven (Gradle) projects, ignore the 'target' ('build') directory as it includes large JAR files
+export function shouldIncludeInZip(dirName: string) {
+    if (transformByQState.getBuildSystem() === BuildSystem.Maven && dirName === 'target') {
+        return false
+    } else if (
+        transformByQState.getBuildSystem() === BuildSystem.Gradle &&
+        (dirName === 'build' || dirName === '.gradle')
+    ) {
+        return false
+    }
+    return true
 }
 
 export async function createPomCopy(

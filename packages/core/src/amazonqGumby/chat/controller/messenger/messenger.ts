@@ -10,7 +10,12 @@
 
 import { AuthFollowUpType, expiredText, enableQText, reauthenticateText } from '../../../../amazonq/auth/model'
 import { ChatItemType } from '../../../../amazonqFeatureDev/models'
-import { JDKVersion, TransformationCandidateProject } from '../../../../codewhisperer/models/model'
+import {
+    BuildSystem,
+    JDKVersion,
+    TransformationCandidateProject,
+    transformByQState,
+} from '../../../../codewhisperer/models/model'
 import { FeatureAuthState } from '../../../../codewhisperer/util/authUtil'
 import * as CodeWhispererConstants from '../../../../codewhisperer/models/constants'
 import {
@@ -39,7 +44,7 @@ export type StaticTextResponseType =
 export type UnrecoverableErrorType =
     | 'no-project-found'
     | 'no-java-project-found'
-    | 'no-maven-java-project-found'
+    | 'no-maven-or-gradle-java-project-found'
     | 'could-not-compile-project'
     | 'invalid-java-home'
     | 'unsupported-source-jdk-version'
@@ -315,11 +320,14 @@ export class Messenger {
             case 'no-java-project-found':
                 message = CodeWhispererConstants.noJavaProjectsFoundChatMessage
                 break
-            case 'no-maven-java-project-found':
-                message = CodeWhispererConstants.noPomXmlFoundChatMessage
+            case 'no-maven-or-gradle-java-project-found':
+                message = CodeWhispererConstants.noPomXmlOrBuildGradleFoundChatMessage
                 break
             case 'could-not-compile-project':
-                message = CodeWhispererConstants.cleanInstallErrorChatMessage
+                message =
+                    transformByQState.getBuildSystem() === BuildSystem.Maven
+                        ? CodeWhispererConstants.cleanInstallErrorChatMessage
+                        : CodeWhispererConstants.gradleBuildErrorChatMessage
                 break
             case 'invalid-java-home':
                 message = CodeWhispererConstants.noJavaHomeFoundChatMessage

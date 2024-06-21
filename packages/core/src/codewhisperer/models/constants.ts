@@ -516,11 +516,13 @@ export const jobPartiallyCompletedChatMessage =
 export const jobPartiallyCompletedNotification =
     'Amazon Q upgraded part of your code to Java 17. You can review the diff to see my proposed changes and accept or reject them. The transformation summary has details about the files I updated and the errors that prevented a complete transformation.'
 
-export const noPomXmlFoundChatMessage =
-    'Sorry, I could not find a project that I can upgrade. I could not find a pom.xml file in any of your open projects. Currently, I can only upgrade Java 8 or Java 11 projects built on Maven. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
+// TO-DO: get text approved
+export const noPomXmlOrBuildGradleFoundChatMessage =
+    'Sorry, I could not find a project that I can upgrade. I could not find a pom.xml file or build.gradle / build.gradle.kts file in any of your open projects. Currently, I can only upgrade Java 8 or Java 11 projects built on Maven or Gradle. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
 
-export const noPomXmlFoundNotification =
-    'None of your open projects are supported by Amazon Q Code Transformation. Amazon Q could not find a pom.xml file in any of your open projects. Currently, Amazon Q can only upgrade Java 8 or Java 11 projects built on Maven. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
+// TO-DO: get text approved
+export const noPomXmlOrBuildGradleFoundNotification =
+    'None of your open projects are supported by Amazon Q Code Transformation. Amazon Q could not find a pom.xml file or build.gradle / build.gradle.kts file in any of your open projects. Currently, Amazon Q can only upgrade Java 8 or Java 11 projects built on Maven or Gradle. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
 
 export const noJavaHomeFoundChatMessage =
     'Sorry, I could not locate your Java installation. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
@@ -587,6 +589,13 @@ export const cleanInstallErrorChatMessage =
 
 export const cleanInstallErrorNotification =
     'Amazon Q could not run the Maven clean install command to build your project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'
+
+// TO-DO: get this text approved, including the link
+export const gradleBuildErrorNotification =
+    'Amazon Q could not build your Gradle project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'
+
+export const gradleBuildErrorChatMessage =
+    'Sorry, I could not build your Gradle project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'
 
 export const enterJavaHomeChatMessage = 'Enter the path to JDK '
 

@@ -24,9 +24,9 @@ export class NoJavaProjectsFoundError extends ToolkitError {
     }
 }
 
-export class NoMavenJavaProjectsFoundError extends ToolkitError {
+export class NoMavenOrGradleJavaProjectsFoundError extends ToolkitError {
     constructor() {
-        super('No valid Maven build file found', { code: 'CouldNotFindPomXml' })
+        super('No valid Maven or Gradle build file found', { code: 'CouldNotFindPomXmlOrBuildGradle' })
     }
 }
 

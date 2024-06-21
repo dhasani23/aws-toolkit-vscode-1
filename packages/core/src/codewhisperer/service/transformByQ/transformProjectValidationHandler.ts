@@ -13,7 +13,7 @@ import { javapOutputToTelemetryValue } from '../../../amazonqGumby/telemetry/cod
 import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
 import {
     NoJavaProjectsFoundError,
-    NoMavenJavaProjectsFoundError,
+    NoMavenOrGradleJavaProjectsFoundError,
     NoOpenProjectsError,
 } from '../../../amazonqGumby/errors'
 import { checkBuildSystem } from './transformFileHandler'
@@ -52,26 +52,26 @@ async function getJavaProjects(projects: TransformationCandidateProject[]) {
     return javaProjects
 }
 
-async function getMavenJavaProjects(javaProjects: TransformationCandidateProject[]) {
-    const mavenJavaProjects = []
+async function getMavenOrGradleJavaProjects(javaProjects: TransformationCandidateProject[]) {
+    const mavenOrGradleJavaProjects = []
 
     for (const project of javaProjects) {
         const projectPath = project.path
         const buildSystem = await checkBuildSystem(projectPath!)
-        if (buildSystem === BuildSystem.Maven) {
-            mavenJavaProjects.push(project)
+        if (buildSystem === BuildSystem.Maven || buildSystem === BuildSystem.Gradle) {
+            mavenOrGradleJavaProjects.push(project)
         }
     }
 
-    return mavenJavaProjects
+    return mavenOrGradleJavaProjects
 }
 
 async function getProjectsValidToTransform(
-    mavenJavaProjects: TransformationCandidateProject[],
+    mavenOrGradleJavaProjects: TransformationCandidateProject[],
     onProjectFirstOpen: boolean = true
 ) {
     const projectsValidToTransform: TransformationCandidateProject[] = []
-    for (const project of mavenJavaProjects) {
+    for (const project of mavenOrGradleJavaProjects) {
         let detectedJavaVersion = undefined
         const projectPath = project.path
         const compiledJavaFiles = await vscode.workspace.findFiles(
@@ -137,9 +137,9 @@ async function getProjectsValidToTransform(
 }
 
 /*
- * This function filters all open projects by first searching for a .java file and then searching for a pom.xml file in all projects.
+ * This function filters all open projects by first searching for a .java file and then searching for one of a: (pom.xml file, build.gradle / build.gradle.kts file) in all projects.
  * It also tries to detect the Java version of each project by running "javap" on a .class file of each project.
- * As long as the project contains a .java file and a pom.xml file, the project is still considered valid for transformation,
+ * As long as the project contains a .java file and one of a: (pom.xml file, build.gradle / build.gradle.kts file), the project is still considered valid for transformation,
  * and we allow the user to specify the Java version.
  */
 export async function validateOpenProjects(
@@ -160,26 +160,27 @@ export async function validateOpenProjects(
         throw new NoJavaProjectsFoundError()
     }
 
-    const mavenJavaProjects = await getMavenJavaProjects(javaProjects)
-    if (mavenJavaProjects.length === 0) {
+    const mavenOrGradleJavaProjects = await getMavenOrGradleJavaProjects(javaProjects)
+    if (mavenOrGradleJavaProjects.length === 0) {
         if (!onProjectFirstOpen) {
-            void vscode.window.showErrorMessage(CodeWhispererConstants.noPomXmlFoundNotification)
+            void vscode.window.showErrorMessage(CodeWhispererConstants.noPomXmlOrBuildGradleFoundNotification)
+            // TO-DO: modify codeTransformPreValidationError to be more generic
+            // Done
             telemetry.codeTransform_isDoubleClickedToTriggerInvalidProject.emit({
                 codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
                 codeTransformPreValidationError: 'NonMavenProject',
                 result: MetadataResult.Fail,
-                reason: 'NoPomFileFound',
+                reason: 'NoMavenOrGradleBuildFileFound',
             })
         }
-        throw new NoMavenJavaProjectsFoundError()
+        throw new NoMavenOrGradleJavaProjectsFoundError()
     }
 
     /*
-     * These projects we know must contain a pom.xml and a .java file
-     * here we try to get the Java version of each project so that we
-     * can pre-select a default version in the QuickPick for them.
+     * These projects we know must contain a .java file and one of a: (pom.xml file, build.gradle / build.gradle.kts file) so
+     * here we try to get the Java version of each project so that we can pre-select a default version.
      */
-    const projectsValidToTransform = await getProjectsValidToTransform(mavenJavaProjects, onProjectFirstOpen)
+    const projectsValidToTransform = await getProjectsValidToTransform(mavenOrGradleJavaProjects, onProjectFirstOpen)
 
     return projectsValidToTransform
 }

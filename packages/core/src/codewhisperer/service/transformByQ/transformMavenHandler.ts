@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import * as vscode from 'vscode'
-import { FolderInfo, transformByQState } from '../../models/model'
+import { BuildSystem, FolderInfo, transformByQState } from '../../models/model'
 import { getLogger } from '../../../shared/logger'
 import * as CodeWhispererConstants from '../../models/constants'
 import { spawnSync } from 'child_process' // Consider using ChildProcess once we finalize all spawnSync calls
@@ -13,11 +13,14 @@ import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
 import { ToolkitError } from '../../../shared/errors'
 import { writeLogs } from './transformFileHandler'
 import { throwIfCancelled } from './transformApiHandler'
+import { globals } from '../../../shared'
+import * as os from 'os'
+import path from 'path'
 
 // run 'install' with either 'mvnw.cmd', './mvnw', or 'mvn' (if wrapper exists, we use that, otherwise we use regular 'mvn')
-function installProjectDependencies(dependenciesFolder: FolderInfo, modulePath: string) {
+function installMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath: string) {
     // baseCommand will be one of: '.\mvnw.cmd', './mvnw', 'mvn'
-    const baseCommand = transformByQState.getMavenName()
+    const baseCommand = transformByQState.getBuildSystemCommand()
 
     transformByQState.appendToErrorLog(`Running command ${baseCommand} clean install`)
 
@@ -64,7 +67,7 @@ function installProjectDependencies(dependenciesFolder: FolderInfo, modulePath: 
             const errorCode = (spawnResult.error as any).code ?? 'UNKNOWN'
             errorReason += `-${errorCode}`
         }
-        let mavenBuildCommand = transformByQState.getMavenName()
+        let mavenBuildCommand = transformByQState.getBuildSystemCommand()
         // slashes not allowed in telemetry
         if (mavenBuildCommand === './mvnw') {
             mavenBuildCommand = 'mvnw'
@@ -83,9 +86,9 @@ function installProjectDependencies(dependenciesFolder: FolderInfo, modulePath: 
     }
 }
 
-function copyProjectDependencies(dependenciesFolder: FolderInfo, modulePath: string) {
+function copyMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath: string) {
     // baseCommand will be one of: '.\mvnw.cmd', './mvnw', 'mvn'
-    const baseCommand = transformByQState.getMavenName()
+    const baseCommand = transformByQState.getBuildSystemCommand()
 
     transformByQState.appendToErrorLog(`Running command ${baseCommand} copy-dependencies`)
 
@@ -130,7 +133,7 @@ function copyProjectDependencies(dependenciesFolder: FolderInfo, modulePath: str
             const errorCode = (spawnResult.error as any).code ?? 'UNKNOWN'
             errorReason += `-${errorCode}`
         }
-        let mavenBuildCommand = transformByQState.getMavenName()
+        let mavenBuildCommand = transformByQState.getBuildSystemCommand()
         // slashes not allowed in telemetry
         if (mavenBuildCommand === './mvnw') {
             mavenBuildCommand = 'mvnw'
@@ -149,9 +152,26 @@ function copyProjectDependencies(dependenciesFolder: FolderInfo, modulePath: str
     }
 }
 
-export async function prepareProjectDependencies(dependenciesFolder: FolderInfo, rootPomPath: string) {
+export async function prepareProjectDependencies(dependenciesFolder: FolderInfo | undefined, projectPath: string) {
+    // at this point, one of these must be true
+    if (transformByQState.getBuildSystem() === BuildSystem.Maven) {
+        // dependenciesFolder always exists for Maven
+        await prepareMavenProjectDependencies(dependenciesFolder!, projectPath)
+    } else if (transformByQState.getBuildSystem() === BuildSystem.Gradle) {
+        try {
+            await prepareGradleProjectDependencies()
+        } catch (err) {
+            // continue because transformation may still succeed
+            getLogger().info(
+                'CodeTransformation: gradle_copy_deps.py failed, but still continuing the transformation job'
+            )
+        }
+    }
+}
+
+export async function prepareMavenProjectDependencies(dependenciesFolder: FolderInfo, projectPath: string) {
     try {
-        copyProjectDependencies(dependenciesFolder, rootPomPath)
+        copyMavenProjectDependencies(dependenciesFolder, projectPath)
     } catch (err) {
         // continue in case of errors
         getLogger().info(
@@ -160,7 +180,7 @@ export async function prepareProjectDependencies(dependenciesFolder: FolderInfo,
     }
 
     try {
-        installProjectDependencies(dependenciesFolder, rootPomPath)
+        installMavenProjectDependencies(dependenciesFolder, projectPath)
     } catch (err) {
         void vscode.window.showErrorMessage(CodeWhispererConstants.cleanInstallErrorNotification)
         // open build-logs.txt file to show user error logs
@@ -174,41 +194,162 @@ export async function prepareProjectDependencies(dependenciesFolder: FolderInfo,
     void vscode.window.showInformationMessage(CodeWhispererConstants.buildSucceededNotification)
 }
 
+async function getPythonExecutable() {
+    const pythonExecutables = ['python', 'python3', 'py', 'py3']
+    for (const executable of pythonExecutables) {
+        try {
+            const result = spawnSync(executable, ['--version'])
+            if (result.status === 0) {
+                return executable
+            }
+        } catch (err) {
+            // ignore errors and try another executable
+        }
+    }
+    return undefined
+}
+
+export async function prepareGradleProjectDependencies() {
+    try {
+        transformByQState.appendToErrorLog(`Running gradle_copy_deps.py to copy Gradle project dependencies`)
+        // let scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/gradle_copy_deps.py')
+        // if (os.platform() === 'win32') {
+        //     scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/windows_gradle_copy_deps.py')
+        // }
+        let scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/gradle_copy_deps.py')
+        if (os.platform() === 'win32') {
+            scriptPath = path.join(
+                globals.context.asAbsolutePath('scripts/build/transformByQ'),
+                'windows_gradle_copy_deps.py'
+            )
+        }
+        const args = [`${scriptPath}`, `${transformByQState.getProjectPath()}`]
+        let environment = process.env
+        if (transformByQState.getJavaHome() !== undefined) {
+            environment = { ...process.env, JAVA_HOME: transformByQState.getJavaHome() }
+        }
+
+        const pythonExecutable = await getPythonExecutable()
+        if (!pythonExecutable) {
+            const errorMessage = 'No Python executable found (checked python, python3, py, and py3)'
+            transformByQState.appendToErrorLog(errorMessage)
+            getLogger().error(errorMessage)
+            throw new Error(errorMessage)
+        }
+        // shell: false because project path is passed as an arg to the Python script
+        // and any special characters in that path will be interpreted by the shell
+        const spawnResult = spawnSync(pythonExecutable, args, {
+            cwd: transformByQState.getProjectPath(),
+            shell: false,
+            encoding: 'utf-8',
+            env: environment,
+            maxBuffer: CodeWhispererConstants.maxBufferSize,
+        })
+
+        const argString = args.join(' ')
+        if (spawnResult.status !== 0) {
+            let errorLog = ''
+            errorLog += spawnResult.error ? JSON.stringify(spawnResult.error) : ''
+            errorLog += `${spawnResult.stderr}\n${spawnResult.stdout}`
+            transformByQState.appendToErrorLog(`gradle_copy_deps.py failed: \n ${errorLog}`)
+            getLogger().error(`CodeTransformation: Error in running gradle_copy_deps.py = ${errorLog}`)
+            let errorReason = ''
+            if (spawnResult.stdout) {
+                errorReason = `Python ${argString}: ExecutionError`
+                // in case buffer overflows because this script may generate a lot of output
+                if (Buffer.byteLength(spawnResult.stdout, 'utf-8') > CodeWhispererConstants.maxBufferSize) {
+                    errorReason += '-BufferOverflow'
+                }
+            } else {
+                errorReason = `Python ${argString}: SpawnError`
+            }
+            if (spawnResult.error) {
+                const errorCode = (spawnResult.error as any).code ?? 'UNKNOWN'
+                errorReason += `-${errorCode}`
+            }
+            let gradleBuildCommand = transformByQState.getBuildSystemCommand()
+            // slashes not allowed in telemetry
+            if (gradleBuildCommand === './gradlew') {
+                gradleBuildCommand = 'gradlew'
+            } else if (gradleBuildCommand === '.\\gradlew.bat') {
+                gradleBuildCommand = 'gradlew.bat'
+            }
+            // TO-DO: fix telemetry; make codeTransform_mvnBuildFailed metric and codeTransformMavenBuildCommand field more generic
+            // Done
+            telemetry.codeTransform_mvnBuildFailed.emit({
+                codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
+                codeTransformMavenBuildCommand: gradleBuildCommand as CodeTransformMavenBuildCommand,
+                result: MetadataResult.Fail,
+                reason: errorReason,
+            })
+            throw new Error(`gradle_copy_deps.py failed`)
+        } else {
+            transformByQState.appendToErrorLog(`gradle_copy_deps.py succeeded: ${spawnResult.stdout}`)
+        }
+    } catch (err) {
+        // TO-DO: potentially remove if we don't want to show users error logs when script fails
+        // TO-DO: make this message clear that the transformation will continue anyway if project uses no 1P deps
+        void vscode.window.showErrorMessage(CodeWhispererConstants.gradleBuildErrorNotification)
+        // open build-logs.txt file to show user error logs
+        const logFilePath = await writeLogs()
+        const doc = await vscode.workspace.openTextDocument(logFilePath)
+        await vscode.window.showTextDocument(doc)
+        throw err
+    }
+    throwIfCancelled()
+    void vscode.window.showInformationMessage(CodeWhispererConstants.buildSucceededNotification)
+}
+
 export async function getVersionData() {
-    const baseCommand = transformByQState.getMavenName() // will be one of: 'mvnw.cmd', './mvnw', 'mvn'
+    const baseCommand = transformByQState.getBuildSystemCommand() // will be one of: 'mvnw.cmd', './mvnw', 'mvn', 'gradlew.bat', './gradlew', 'gradle'
     const modulePath = transformByQState.getProjectPath()
     const args = ['-v']
     const spawnResult = spawnSync(baseCommand, args, { cwd: modulePath, shell: true, encoding: 'utf-8' })
-
-    let localMavenVersion: string | undefined = ''
+    let localBuildSystemVersion: string | undefined = ''
     let localJavaVersion: string | undefined = ''
+    if (transformByQState.getBuildSystem() === BuildSystem.Maven) {
+        try {
+            const localMavenVersionIndex = spawnResult.stdout.indexOf('Apache Maven ')
+            const localMavenVersionString = spawnResult.stdout.slice(localMavenVersionIndex + 13).trim()
+            localBuildSystemVersion = localMavenVersionString.slice(0, localMavenVersionString.indexOf(' ')).trim()
+        } catch (e: any) {
+            localBuildSystemVersion = undefined // if this happens here or below, user most likely has JAVA_HOME incorrectly defined
+        }
 
-    try {
-        const localMavenVersionIndex = spawnResult.stdout.indexOf('Apache Maven')
-        const localMavenVersionString = spawnResult.stdout.slice(localMavenVersionIndex + 13).trim()
-        localMavenVersion = localMavenVersionString.slice(0, localMavenVersionString.indexOf(' ')).trim()
-    } catch (e: any) {
-        localMavenVersion = undefined // if this happens here or below, user most likely has JAVA_HOME incorrectly defined
+        try {
+            const localJavaVersionIndex = spawnResult.stdout.indexOf('Java version: ')
+            const localJavaVersionString = spawnResult.stdout.slice(localJavaVersionIndex + 14).trim()
+            localJavaVersion = localJavaVersionString.slice(0, localJavaVersionString.indexOf(',')).trim() // will match value of JAVA_HOME
+        } catch (e: any) {
+            localJavaVersion = undefined
+        }
+    } else if (transformByQState.getBuildSystem() === BuildSystem.Gradle) {
+        try {
+            const localGradleVersionIndex = spawnResult.stdout.indexOf('Gradle ')
+            const localGradleVersionString = spawnResult.stdout.slice(localGradleVersionIndex + 7).trim()
+            localBuildSystemVersion = localGradleVersionString.slice(0, localGradleVersionString.indexOf('\n')).trim()
+        } catch (e: any) {
+            localBuildSystemVersion = undefined // if this happens here or below, user most likely has JAVA_HOME incorrectly defined
+        }
+
+        try {
+            const localJavaVersionIndex = spawnResult.stdout.indexOf('JVM: ')
+            const localJavaVersionString = spawnResult.stdout.slice(localJavaVersionIndex + 5).trim()
+            localJavaVersion = localJavaVersionString.slice(0, localJavaVersionString.indexOf(' ')).trim() // will match value of JAVA_HOME
+        } catch (e: any) {
+            localJavaVersion = undefined
+        }
     }
-
-    try {
-        const localJavaVersionIndex = spawnResult.stdout.indexOf('Java version: ')
-        const localJavaVersionString = spawnResult.stdout.slice(localJavaVersionIndex + 14).trim()
-        localJavaVersion = localJavaVersionString.slice(0, localJavaVersionString.indexOf(',')).trim() // will match value of JAVA_HOME
-    } catch (e: any) {
-        localJavaVersion = undefined
-    }
-
     getLogger().info(
-        `CodeTransformation: Ran ${baseCommand} to get Maven version = ${localMavenVersion} and Java version = ${localJavaVersion} with project JDK = ${transformByQState.getSourceJDKVersion()}`
+        `CodeTransformation: Ran ${baseCommand} to get build system version = ${localBuildSystemVersion} and Java version = ${localJavaVersion} with project JDK = ${transformByQState.getSourceJDKVersion()}`
     )
-    return [localMavenVersion, localJavaVersion]
+    return [localBuildSystemVersion, localJavaVersion]
 }
 
 // run maven 'versions:dependency-updates-aggregate-report' with either 'mvnw.cmd', './mvnw', or 'mvn' (if wrapper exists, we use that, otherwise we use regular 'mvn')
 export function runMavenDependencyUpdateCommands(dependenciesFolder: FolderInfo) {
     // baseCommand will be one of: '.\mvnw.cmd', './mvnw', 'mvn'
-    const baseCommand = transformByQState.getMavenName() // will be one of: 'mvnw.cmd', './mvnw', 'mvn'
+    const baseCommand = transformByQState.getBuildSystemCommand() // will be one of: 'mvnw.cmd', './mvnw', 'mvn'
 
     // Note: IntelliJ runs 'clean' separately from 'install'. Evaluate benefits (if any) of this.
     const args = [

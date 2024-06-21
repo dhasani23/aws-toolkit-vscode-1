@@ -10,6 +10,7 @@ import * as codeWhisperer from '../../client/codewhisperer'
 import * as crypto from 'crypto'
 import * as CodeWhispererConstants from '../../models/constants'
 import {
+    BuildSystem,
     FolderInfo,
     HilZipManifest,
     IHilZipManifestParams,
@@ -39,7 +40,7 @@ import { calculateTotalLatency } from '../../../amazonqGumby/telemetry/codeTrans
 import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
 import request from '../../../common/request'
 import { JobStoppedError, ZipExceedsSizeLimitError } from '../../../amazonqGumby/errors'
-import { writeLogs } from './transformFileHandler'
+import { shouldIncludeInZip, writeLogs } from './transformFileHandler'
 import { AuthUtil } from '../../util/authUtil'
 import { createCodeWhispererChatStreamingClient } from '../../../shared/clients/codewhispererChatClient'
 import { downloadExportResultArchive } from '../../../shared/utilities/download'
@@ -302,28 +303,22 @@ const mavenExcludedExtensions = ['.repositories', '.sha1']
  * @param path The file path to evaluate for exclusion based on its extension.
  * @returns {boolean} Returns true if the path ends with an extension associated with Maven metadata files; otherwise, false.
  */
-function isExcludedDependencyFile(path: string): boolean {
+function isExcludedMavenDependencyFile(path: string): boolean {
     return mavenExcludedExtensions.some(extension => path.endsWith(extension))
 }
 
 /**
- * Gets all files in dir. We use this method to get the source code, then we run a mvn command to
- * copy over dependencies into their own folder, then we use this method again to get those
- * dependencies. If isDependenciesFolder is true, then we are getting all the files
- * of the dependencies which were copied over by the previously-run mvn command, in which case
- * we DO want to include any dependencies that may happen to be named "target", hence the check
- * in the first part of the IF statement. The point of excluding folders named target is that
- * "target" is also the name of the folder where .class files, large JARs, etc. are stored after
- * building, and we do not want these included in the ZIP so we exclude these when calling
- * getFilesRecursively on the source code folder.
+ * Get all files in dir. If zipping the dependencies, include everything.
+ * If zipping source code, exclude folders with large JARs as our backend can't handle them.
+ * isDependenciesFolder will always be false for Gradle projects since we include the
+ * dependencies in the same parent directory as the source code.
  */
 function getFilesRecursively(dir: string, isDependenciesFolder: boolean): string[] {
     const entries = fs.readdirSync(dir, { withFileTypes: true })
     const files = entries.flatMap(entry => {
         const res = path.resolve(dir, entry.name)
-        // exclude 'target' directory from ZIP (except if zipping dependencies) due to issues in backend
         if (entry.isDirectory()) {
-            if (isDependenciesFolder || entry.name !== 'target') {
+            if (isDependenciesFolder || shouldIncludeInZip(entry.name)) {
                 return getFilesRecursively(res, isDependenciesFolder)
             } else {
                 return []
@@ -344,11 +339,12 @@ export function createZipManifest({ hilZipParams }: IZipManifestParams) {
 }
 
 interface IZipCodeParams {
-    dependenciesFolder: FolderInfo
+    dependenciesFolder: FolderInfo | undefined // will be undefined for Gradle projects
     humanInTheLoopFlag?: boolean
     modulePath?: string
     zipManifest: ZipManifest | HilZipManifest
 }
+
 export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePath, zipManifest }: IZipCodeParams) {
     let tempFilePath = undefined
     let zipStartTime = undefined
@@ -358,8 +354,8 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
         zipStartTime = Date.now()
         const zip = new AdmZip()
 
-        // If no modulePath is passed in, we are not uploaded the source folder
-        // NOTE: We only upload dependencies for human in the loop work
+        // If no modulePath is passed in, we are not uploading the source folder.
+        // For HIL, only dependencies are uploaded
         if (modulePath) {
             const sourceFiles = getFilesRecursively(modulePath, false)
             let sourceFilesSize = 0
@@ -374,31 +370,44 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
 
         throwIfCancelled()
 
-        let dependencyFiles: string[] = []
-        if (fs.existsSync(dependenciesFolder.path)) {
-            dependencyFiles = getFilesRecursively(dependenciesFolder.path, true)
+        if (dependenciesFolder) {
+            // must be a Maven project
+            let dependencyFiles: string[] = []
+            if (fs.existsSync(dependenciesFolder.path)) {
+                dependencyFiles = getFilesRecursively(dependenciesFolder.path, true)
+            }
+
+            if (dependencyFiles.length > 0) {
+                let dependencyFilesSize = 0
+                for (const file of dependencyFiles) {
+                    if (isExcludedMavenDependencyFile(file)) {
+                        continue
+                    }
+                    const relativePath = path.relative(dependenciesFolder.path, file)
+                    const paddedPath = path.join(`dependencies/`, relativePath)
+                    zip.addLocalFile(file, path.dirname(paddedPath))
+                    dependencyFilesSize += (await fs.promises.stat(file)).size
+                }
+                getLogger().info(`CodeTransformation: dependency files size = ${dependencyFilesSize}`)
+                telemetry.codeTransform_dependenciesCopied.emit({
+                    codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
+                    result: MetadataResult.Pass,
+                })
+            } else {
+                if (zipManifest instanceof ZipManifest) {
+                    zipManifest.dependenciesRoot = undefined
+                }
+            }
         }
 
-        if (dependencyFiles.length > 0) {
-            let dependencyFilesSize = 0
-            for (const file of dependencyFiles) {
-                if (isExcludedDependencyFile(file)) {
-                    continue
-                }
-                const relativePath = path.relative(dependenciesFolder.path, file)
-                // const paddedPath = path.join(`dependencies/${dependenciesFolder.name}`, relativePath)
-                const paddedPath = path.join(`dependencies/`, relativePath)
-                zip.addLocalFile(file, path.dirname(paddedPath))
-                dependencyFilesSize += (await fs.promises.stat(file)).size
-            }
-            getLogger().info(`CodeTransformation: dependency files size = ${dependencyFilesSize}`)
-            telemetry.codeTransform_dependenciesCopied.emit({
-                codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-                result: MetadataResult.Pass,
-            })
-        } else {
-            if (zipManifest instanceof ZipManifest) {
+        if (zipManifest instanceof ZipManifest) {
+            // buildSystem must be defined at this point
+            zipManifest.buildSystem = transformByQState.getBuildSystem()
+            // not including the "dependencies/" directory for Gradle projects, so omit this key from the manifest.json
+            // also, for now, disable HIL for Gradle projects; this is enforced in the backend too
+            if (transformByQState.getBuildSystem() === BuildSystem.Gradle) {
                 zipManifest.dependenciesRoot = undefined
+                zipManifest.hilCapabilities = undefined
             }
         }
 
@@ -406,17 +415,16 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
 
         throwIfCancelled()
 
-        // add text file with logs from mvn clean install and mvn copy-dependencies
+        // add text file with logs from mvn clean install and mvn copy-dependencies / Gradle script
         logFilePath = await writeLogs()
-        // We don't add build-logs.txt file to the manifest if we are
-        // uploading HIL artifacts
+        // We don't add build-logs.txt file to the manifest if we are uploading HIL artifacts
         if (!humanInTheLoopFlag) {
             zip.addLocalFile(logFilePath)
         }
 
         tempFilePath = path.join(os.tmpdir(), 'zipped-code.zip')
         fs.writeFileSync(tempFilePath, zip.toBuffer())
-        if (fs.existsSync(dependenciesFolder.path)) {
+        if (dependenciesFolder && fs.existsSync(dependenciesFolder.path)) {
             fs.rmSync(dependenciesFolder.path, { recursive: true, force: true })
         }
     } catch (e: any) {
@@ -455,6 +463,7 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
         })
         throw new ZipExceedsSizeLimitError()
     }
+    console.log('zip path = ' + tempFilePath) // TO-DO: remove
     return tempFilePath
 }
 
