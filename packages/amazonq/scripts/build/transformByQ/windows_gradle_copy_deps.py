@@ -2,17 +2,41 @@ import os
 import sys
 import subprocess
 import re
+from pathlib import Path
+ 
+use_offline_dependency = """
+final addDownloadedDependenciesRepository(rooted, receiver) {
+  receiver.repositories.maven {
+    url uri("${rooted.rootDir}/qct-gradle/configuration")
+    metadataSources {
+      mavenPom()
+      artifact()
+    }
+  }
+}
+
+settingsEvaluated { settings ->
+  addDownloadedDependenciesRepository settings, settings.buildscript
+  addDownloadedDependenciesRepository settings, settings.pluginManagement
+}
+
+allprojects { project ->
+  addDownloadedDependenciesRepository project, project.buildscript
+  addDownloadedDependenciesRepository project, project
+}
+"""
+
 # Define the repository URL (unchanged)
 simple_repository_url = """maven {
-    url uri("${project.projectDir}/configuration")
+    url uri("${project.projectDir}/qct-gradle/configuration")
 }
 """
 simple_repository_url_kts = """maven {
-    url = uri("${project.projectDir}/configuration")
+    url = uri("${project.projectDir}/qct-gradle/configuration")
 }
 """
 repository_url_groovy = """maven {
-    url uri("${project.projectDir}/configuration")
+    url uri("${project.projectDir}/qct-gradle/configuration")
     metadataSources {
             mavenPom()
             artifact()
@@ -21,7 +45,7 @@ repository_url_groovy = """maven {
 """
 
 repository_url_kts = """maven {
-    url = uri("${project.projectDir}/configuration")
+    url = uri("${project.projectDir}/qct-gradle/configuration")
 metadataSources {
     mavenPom()
 artifact()
@@ -47,8 +71,8 @@ gradle.rootProject {
 
             def outputString = buildEnvironmentOutput.toString('UTF-8')
             def localM2Dir = new File(System.getProperty("user.home"), ".m2/repository")
-            def gradleCacheDir = new File("${project.projectDir}/START/caches/modules-2/files-2.1") // Update this path
-            def destinationDir = new File("${project.projectDir}/configuration")
+            def gradleCacheDir = new File("${project.projectDir}/qct-gradle/START/caches/modules-2/files-2.1")
+            def destinationDir = new File("${project.projectDir}/qct-gradle/configuration")
 
             // Helper method to copy files to m2 format
             def copyToM2 = { File file, String group, String name, String version ->
@@ -125,7 +149,7 @@ print_contents = '''
     gradle.rootProject {
         task printResolvedDependenciesAndTransformToM2 {
             doLast {
-                def destinationDir = new File("${project.projectDir}/configuration")
+                def destinationDir = new File("${project.projectDir}/qct-gradle/configuration")
 
                 // Helper method to copy files to m2 format
                 def copyToM2 = { File file, String group, String name, String version ->
@@ -215,8 +239,8 @@ print_contents = '''
 copy_modules_script_content = '''
 gradle.rootProject {
     ext.destDir = "$projectDir"
-    ext.startDir = "$destDir/START"
-    ext.finalDir = "$destDir/FINAL"
+    ext.startDir = "$destDir/qct-gradle/START"
+    ext.finalDir = "$destDir/qct-gradle/FINAL"
 
     task buildProject(type: Exec) {
         commandLine "$destDir/gradlew.bat", "build", "-p", destDir, "-g", startDir
@@ -246,9 +270,9 @@ gradle.rootProject {
 custom_init_script_content = '''
 gradle.rootProject {
     task cacheToMavenLocal(type: Copy) {
-        def destinationDirectory = "${project.projectDir}/configuration"
+        def destinationDirectory = "${project.projectDir}/qct-gradle/configuration"
         println(destinationDirectory)
-        from new File("${project.projectDir}/START", "caches/modules-2/files-2.1")
+        from new File("${project.projectDir}/qct-gradle/START", "caches/modules-2/files-2.1")
         into destinationDirectory
         eachFile {
             List<String> parts = it.path.split('/')
@@ -260,11 +284,10 @@ gradle.rootProject {
 }
 '''
 
-
 def create_init_script(directory, init_name, content):
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    file_path = os.path.join(directory, init_name)
+    qct_gradle_dir = os.path.join(directory, 'qct-gradle')
+    os.makedirs(qct_gradle_dir, exist_ok=True)
+    file_path = os.path.join(qct_gradle_dir, init_name)
     with open(file_path, 'w') as file:
         file.write(content)
     print(f'init.gradle file created successfully at {file_path}')
@@ -274,223 +297,72 @@ def make_gradlew_executable(gradlew_path):
     # check=True causes an Exception to be thrown on non-zero status code
     try:
         subprocess.run(['attrib', '-r', gradlew_path], check=True, text=True, capture_output=True)
-        print(f'made gradlew.bat executable at {gradlew_path}')
+        print(f'Made gradlew.bat executable at {gradlew_path}')
     except Exception as e:
         print(f'e.stdout = {e.stdout}')
         print(f'e.stderr = {e.stderr}')
         print(f'e.returncode = {e.returncode}')
         print(f'e.args = {e.args}')
-        raise # re-throw exception to be caught in main method
+        raise # re-throw exception to be caught below
 
 def run_gradle_task(init_script_path, directory_path, task):
-    print(init_script_path)
     try:
-        result = subprocess.run([f"{directory_path}/gradlew.bat", task, '--init-script', init_script_path, '-g', f"{directory_path}/START", '-p', f"{directory_path}", '--info'], check=True, text=True, capture_output=True)
+        result = subprocess.run([f"{directory_path}/gradlew.bat", task, '--init-script', init_script_path, '-g', f"{directory_path}/qct-gradle/START", '-p', f"{directory_path}", '--info'], check=True, text=True, capture_output=True)
     except Exception as e:
         print(f'e.stdout = {e.stdout}')
         print(f'e.stderr = {e.stderr}')
         print(f'e.returncode = {e.returncode}')
         print(f'e.args = {e.args}')
-        raise # re-throw exception to be caught in main method
-    
+        raise # re-throw exception to be caught below
 
-def update_build_gradle(file_path, project_dest):
-    build_gradle_repo = f"""maven {{
-            url uri('{project_dest}')
-        }}"""
-    MDE_repo = """maven {
-    url uri('/ramdisk/code/configuration')
-    metadataSources {
-            mavenPom()
-            artifact()
-        }
-}"""
-    build_gradle_repo_with_flags = f"""maven {{
-            url uri('{project_dest}/configuration')
-            metadataSources {{
-            mavenPom()
-            artifact()
-        }}
-        }}"""
-    with open(file_path, "r") as file:
-        content = file.read()
+def run_offline_build(init_script_path, directory_path):
+    try:
+        result = subprocess.run(
+            [f"{directory_path}/gradlew.bat", 'build', '--init-script', init_script_path, '-g', f"{directory_path}/qct-gradle/FINAL", '-p', f"{directory_path}", '--offline'],
+            check=True, text=True, capture_output=True
+        )
+        print("run_offline_build() succeeded:")
+        print(result.stdout)
+    except Exception as e:
+        print(f'e.stdout = {e.stdout}')
+        print(f'e.stderr = {e.stderr}')
+        print(f'e.returncode = {e.returncode}')
+        print(f'e.args = {e.args}')
+        raise
+ 
+def create_run_task(path, init_file_name, content, task_name):
+    init_script_path = create_init_script(path, init_file_name, content)
+    run_gradle_task(init_script_path, path, task_name)
 
-    if simple_repository_url not in content:
-        if "repositories {" in content:
-            content = content.replace(
-                "repositories {", f"repositories {{\n    {build_gradle_repo_with_flags} \n {MDE_repo}"
-            )
-        else:
-            # Append repositories block at the end
-            content += f"\n\nrepositories {{\n    {build_gradle_repo_with_flags}  \n {MDE_repo}\n}}\n"
-        print(content)
-        with open(file_path, "w") as file:
-            file.write(content)
-        print(f"Updated {file_path}")
+def run(directory_path):
+    gradlew_path = os.path.join(directory_path, 'gradlew.bat')
+    if os.path.exists(gradlew_path):
+        print("gradlew.bat executable found")
+        try:
+            make_gradlew_executable(gradlew_path)
+        except Exception as e:
+            print(f"Error setting the gradlew.bat file to be executable, going to continue anyway: {e}")
     else:
-        print(f"{file_path} already contains the repository URL")
-
-
-def update_build_gradle_kts(file_path, project_dest):
-    build_gradle_repo_with_flags = f"""maven {{
-            url = uri("{project_dest}")
-            metadataSources {{
-            mavenPom()
-            artifact()
-        }}
-        }}"""
-
-    build_gradle_repo_with_flags_mde = """
-    maven {
-            url uri('/ramdisk/code/configuration')
-            metadataSources {
-            mavenPom()
-            artifact()
-        }
-        }"""
-    with open(file_path, "r") as file:
-        content = file.read()
-
-    if simple_repository_url_kts not in content:
-        if "repositories {" in content:
-            content = content.replace(
-                "repositories {", f"repositories {{\n    {repository_url_kts} \n{build_gradle_repo_with_flags_mde}"
-            )
-        else:
-            content += f"\n\nrepositories {{\n    {repository_url_kts} \n{build_gradle_repo_with_flags_mde}\n}}\n"
-        with open(file_path, "w") as file:
-            file.write(content)
-        print(f"Updated {file_path}")
-    else:
-        print(f"{file_path} already contains the repository URL")
-
-
-def update_settings_gradle(file_path, plugin_management_path):
-    plugin_management_repo = f"""maven {{
-            url uri('{plugin_management_path}')
-        }}"""
-    mde_plugin_management = """
-    maven {
-            url uri('/ramdisk/code/configuration')
-            metadataSources {
-            mavenPom()
-            artifact()
-        }
-        }"""
-
-    plugin_management_block = f"""pluginManagement {{
-    repositories {{
-        {plugin_management_repo}
-        {mde_plugin_management}
-    }}
-}}
-"""
-
-    if not os.path.exists(file_path):
-        with open(file_path, "w") as file:
-            file.write(plugin_management_block)
-        print(f"Created and updated {file_path}")
-    else:
-        with open(file_path, "r") as file:
-            content = file.read()
-
-        if "pluginManagement" not in content:
-            updated_content = plugin_management_block + "\n" + content
-        else:
-            plugin_management_pattern = re.compile(r"pluginManagement\s*{[^}]*}")
-            match = plugin_management_pattern.search(content)
-
-            if match:
-                if "repositories" not in match.group(0):
-                    print(" no repositories")
-                    updated_content = content.replace(
-                        match.group(0),
-                        match.group(0).rstrip("}")
-                        + f"\n    repositories {{\n        {plugin_management_repo}\n    }}\n}}",
-                        )
-                else:
-                    print("found repositories")
-                    repositories_pattern = re.compile(r"repositories\s*{[^}]*}")
-                    repositories_match = repositories_pattern.search(match.group(0))
-
-                    if repositories_match:
-                        if plugin_management_repo not in repositories_match.group(0):
-                            updated_content = content.replace(
-                                repositories_match.group(0),
-                                repositories_match.group(0).rstrip("}")
-                                + f"\n        {plugin_management_repo}\n    "
-                                  f"\n        {mde_plugin_management}\n    }}",
-                                )
-                        else:
-                            print(
-                                f"{file_path} already contains the pluginManagement URL"
-                            )
-                            return
-                    else:
-                        updated_content = content
-            else:
-                updated_content = content
-
-        with open(file_path, "w") as file:
-            file.write(updated_content)
-        print(f"Updated {file_path}")
-
-
-def runUpdateConfig(directory_path):
-    plugin_management_path = os.path.join(directory_path, 'configuration')
-    for root, dirs, files in os.walk(directory_path):
-        for file in files:
-            if file == "build.gradle":
-                update_build_gradle(os.path.join(root, file), directory_path)
-                print(file)
-            if file == "build.gradle.kts":
-                update_build_gradle_kts(os.path.join(root, file), directory_path)
-                print(file)
-            elif file == "settings.gradle":
-                update_settings_gradle(os.path.join(root, file), plugin_management_path)
-                print(file)
-
-    # Update or create the settings.gradle in the project root directory
-    update_settings_gradle(
-        os.path.join(directory_path, "settings.gradle"), plugin_management_path
-    )
-
-
+        # TO-DO: get text approved
+        print("gradlew.bat executable not found. Please ensure you have a Gradle wrapper at the root of your project. Run 'gradle wrapper' to generate one.")
+        sys.exit(1)
+    try:
+        create_run_task(directory_path, 'copyModules-init.gradle', copy_modules_script_content, 'copyModules2')
+        create_run_task(directory_path, 'custom-init.gradle', custom_init_script_content, 'cacheToMavenLocal')
+        create_run_task(directory_path, 'resolved-paths-init.gradle', print_contents, 'printResolvedDependenciesAndTransformToM2')
+        create_run_task(directory_path,'buildEnv-copy-init.gradle', run_build_env_copy_content, 'runAndParseBuildEnvironment')
+        build_offline_dependencies = create_init_script(directory_path, 'use-downloaded-dependencies.gradle', use_offline_dependency)
+        run_offline_build(build_offline_dependencies, directory_path)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         # should never happen because script is invoked correctly from toolkit
         print("Usage: python copyDepsPythonScript.py <directory_path>")
         print(f'Expected 2 arguments but got {len(sys.argv)} arguments: {sys.argv}')
-        sys.exit(1)
+        sys.exit(1) # set return code to non-zero value
     else:
         directory_path = sys.argv[1]
-        # Print the path to the gradlew.bat executable for debugging
-        gradlew_path = os.path.join(directory_path, 'gradlew.bat')
-        print(f"Expected path to gradlew.bat: {gradlew_path}")
-
-        if os.path.exists(gradlew_path):
-            print("gradlew.bat executable found")
-            try:
-                make_gradlew_executable(gradlew_path)
-            except Exception as e:
-                print(f"Error making gradlew.bat executable, going to continue anyway: {e}")
-        else:
-            # TO-DO: get text approved
-            print("gradlew.bat executable not found. Please ensure you have a Gradle wrapper at the root of your project. Run 'gradle wrapper' to generate one.")
-            sys.exit(1)
-
-        try:
-            init_script_path = create_init_script(directory_path, 'copyModules-init.gradle', copy_modules_script_content)
-            run_gradle_task(init_script_path, directory_path, 'copyModules2')
-            custom_init_script_path = create_init_script(directory_path, 'custom-init.gradle', custom_init_script_content)
-            run_gradle_task(custom_init_script_path, directory_path, 'cacheToMavenLocal')
-            print_contents_path = create_init_script(directory_path, 'resolved-paths-init.gradle', print_contents)
-            run_gradle_task(print_contents_path,directory_path,'printResolvedDependenciesAndTransformToM2')
-            run_build_env_copy_path = create_init_script(directory_path,'buildEnv-copy-init.gradle', run_build_env_copy_content)
-            run_gradle_task(run_build_env_copy_path, directory_path, 'runAndParseBuildEnvironment')
-            runUpdateConfig(directory_path)
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            sys.exit(1)
-    
+        run(directory_path)
