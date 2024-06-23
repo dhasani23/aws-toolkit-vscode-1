@@ -36,7 +36,7 @@ import {
     getOpenProjects,
 } from '../../../codewhisperer/service/transformByQ/transformProjectValidationHandler'
 import { TransformationCandidateProject, ZipManifest } from '../../../codewhisperer/models/model'
-import { shouldIncludeInZip } from '../../../codewhisperer/service/transformByQ/transformFileHandler'
+import { shouldIncludeDirectoryInZip } from '../../../codewhisperer/service/transformByQ/transformFileHandler'
 
 describe('transformByQ', function () {
     let tempDir: string
@@ -224,14 +224,14 @@ describe('transformByQ', function () {
     it(`WHEN maven project is zipped THEN src directory is included`),
         function () {
             transformByQState.setBuildSystem(BuildSystem.Maven)
-            assert.equal(shouldIncludeInZip('src'), false)
+            assert.equal(shouldIncludeDirectoryInZip('src'), false)
         }
 
     it(`WHEN gradle project is zipped THEN build and .gradle directories are excluded`),
         function () {
             transformByQState.setBuildSystem(BuildSystem.Gradle)
-            assert.equal(shouldIncludeInZip('.gradle'), false)
-            assert.equal(shouldIncludeInZip('build'), false)
+            assert.equal(shouldIncludeDirectoryInZip('.gradle'), false)
+            assert.equal(shouldIncludeDirectoryInZip('build'), false)
         }
 
     it(`WHEN zip created THEN dependencies contains no .sha1 or .repositories files`, async function () {

@@ -40,7 +40,7 @@ import { calculateTotalLatency } from '../../../amazonqGumby/telemetry/codeTrans
 import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
 import request from '../../../common/request'
 import { JobStoppedError, ZipExceedsSizeLimitError } from '../../../amazonqGumby/errors'
-import { shouldIncludeInZip, writeLogs } from './transformFileHandler'
+import { shouldIncludeDirectoryInZip, writeLogs } from './transformFileHandler'
 import { AuthUtil } from '../../util/authUtil'
 import { createCodeWhispererChatStreamingClient } from '../../../shared/clients/codewhispererChatClient'
 import { downloadExportResultArchive } from '../../../shared/utilities/download'
@@ -286,25 +286,11 @@ export async function uploadPayload(payloadFileName: string, uploadContext?: Upl
     return response.uploadId
 }
 
-/**
- * Array of file extensions used by Maven as metadata in the local repository.
- * Files with these extensions influence Maven's behavior during compile time,
- * particularly in checking the availability of source repositories and potentially
- * re-downloading dependencies if the source is not accessible. Removing these
- * files can prevent Maven from attempting to download dependencies again.
- */
-const mavenExcludedExtensions = ['.repositories', '.sha1']
+const excludedFiles = ['.repositories', '.sha1', '.lock', 'gc.properties']
 
-/**
- * Determines if the specified file path corresponds to a Maven metadata file
- * by checking against known metadata file extensions. This is used to identify
- * files that might trigger Maven to recheck or redownload dependencies from source repositories.
- *
- * @param path The file path to evaluate for exclusion based on its extension.
- * @returns {boolean} Returns true if the path ends with an extension associated with Maven metadata files; otherwise, false.
- */
-function isExcludedMavenDependencyFile(path: string): boolean {
-    return mavenExcludedExtensions.some(extension => path.endsWith(extension))
+// exclude these files from ZIP as they may interfere with backend build
+function isExcludedFile(path: string): boolean {
+    return excludedFiles.some(extension => path.endsWith(extension))
 }
 
 /**
@@ -318,7 +304,7 @@ function getFilesRecursively(dir: string, isDependenciesFolder: boolean): string
     const files = entries.flatMap(entry => {
         const res = path.resolve(dir, entry.name)
         if (entry.isDirectory()) {
-            if (isDependenciesFolder || shouldIncludeInZip(entry.name)) {
+            if (isDependenciesFolder || shouldIncludeDirectoryInZip(entry.name)) {
                 return getFilesRecursively(res, isDependenciesFolder)
             } else {
                 return []
@@ -360,6 +346,9 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
             const sourceFiles = getFilesRecursively(modulePath, false)
             let sourceFilesSize = 0
             for (const file of sourceFiles) {
+                if (isExcludedFile(file)) {
+                    continue
+                }
                 const relativePath = path.relative(modulePath, file)
                 const paddedPath = path.join('sources', relativePath)
                 zip.addLocalFile(file, path.dirname(paddedPath))
@@ -380,7 +369,7 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
             if (dependencyFiles.length > 0) {
                 let dependencyFilesSize = 0
                 for (const file of dependencyFiles) {
-                    if (isExcludedMavenDependencyFile(file)) {
+                    if (isExcludedFile(file)) {
                         continue
                     }
                     const relativePath = path.relative(dependenciesFolder.path, file)
