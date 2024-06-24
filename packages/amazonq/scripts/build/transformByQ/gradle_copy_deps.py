@@ -249,8 +249,8 @@ gradle.rootProject {
     task copyModules2 {
         dependsOn buildProject
         doLast {
-            def srcDir = file("$startDir/caches/")
-            def destDir = file("$finalDir/caches/")
+            def srcDir = file("$startDir/caches/modules-2/files-2.1")
+            def destDir = file("$finalDir/caches/modules-2/files-2.1")
             
             if (srcDir.exists()) {
                 copy {
