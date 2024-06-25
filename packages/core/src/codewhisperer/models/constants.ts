@@ -592,7 +592,7 @@ export const cleanInstallErrorChatMessage =
 export const cleanInstallErrorNotification =
     'Amazon Q could not run the Maven clean install command to build your project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'
 
-// TO-DO: get text approved
+// TO-DO: get text approved; make this message clear that the transformation will continue anyway if project uses no 1P deps
 export const gradleBuildErrorNotification =
     'Amazon Q could not build your Gradle project, so any 1P dependencies were not copied over. The transformation is still proceeding as it may succeed if your project does not use any 1P dependencies, but you can also stop the job and address the issues shown in the build-logs.txt file if you know that your project uses 1P dependencies.'
 

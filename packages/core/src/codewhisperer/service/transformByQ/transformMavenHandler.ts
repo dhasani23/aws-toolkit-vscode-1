@@ -279,8 +279,6 @@ export async function prepareGradleProjectDependencies() {
             transformByQState.appendToErrorLog(`gradle_copy_deps.py succeeded: ${spawnResult.stdout}`)
         }
     } catch (err) {
-        // TO-DO: potentially remove if we don't want to show users error logs when script fails
-        // TO-DO: make this message clear that the transformation will continue anyway if project uses no 1P deps
         void vscode.window.showErrorMessage(CodeWhispererConstants.gradleBuildErrorNotification)
         // open build-logs.txt file to show user error logs
         const logFilePath = await writeLogs()
