@@ -808,7 +808,7 @@ export async function pollTransformationJob(jobId: string, validStates: string[]
                 result: MetadataResult.Fail,
                 reason: 'GetTransformationFailed',
             })
-            throw new Error('Error while polling job status')
+            throw e
         }
     }
     return status
@@ -846,17 +846,12 @@ export function findDownloadArtifactStep(transformationSteps: TransformationStep
     }
 }
 
-interface IDownloadResultArchiveParams {
-    jobId: string
-    downloadArtifactId: string
-    pathToArchive: string
-}
-export async function downloadResultArchive({
-    jobId,
-    downloadArtifactId,
-    pathToArchive,
-}: IDownloadResultArchiveParams) {
-    let downloadErrorMessage = undefined
+export async function downloadResultArchive(
+    jobId: string,
+    downloadArtifactId: string | undefined,
+    pathToArchive: string,
+    downloadArtifactType: TransformationDownloadArtifactType
+) {
     const cwStreamingClient = await createCodeWhispererChatStreamingClient()
     try {
         await downloadExportResultArchive(
@@ -864,40 +859,42 @@ export async function downloadResultArchive({
             {
                 exportId: jobId,
                 exportIntent: ExportIntent.TRANSFORMATION,
-                exportContext: {
-                    transformationExportContext: {
-                        downloadArtifactId,
-                        downloadArtifactType: TransformationDownloadArtifactType.CLIENT_INSTRUCTIONS,
-                    },
-                },
+                ...(downloadArtifactId !== undefined && {
+                    exportContext: { transformationExportContext: { downloadArtifactId, downloadArtifactType } },
+                }),
             },
             pathToArchive
         )
     } catch (e: any) {
-        downloadErrorMessage = (e as Error).message
-        // This allows the customer to retry the download
+        const downloadErrorMessage = (e as Error).message
         getLogger().error(`CodeTransformation: ExportResultArchive error = ${downloadErrorMessage}`)
         telemetry.codeTransform_logApiError.emit({
             codeTransformApiNames: 'ExportResultArchive',
             codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-            codeTransformJobId: transformByQState.getJobId(),
+            codeTransformJobId: jobId,
             codeTransformApiErrorMessage: downloadErrorMessage,
             codeTransformRequestId: e.requestId ?? '',
             result: MetadataResult.Fail,
             reason: 'ExportResultArchiveFailed',
         })
+        throw e
     } finally {
         cwStreamingClient.destroy()
     }
 }
 
-export async function downloadHilResultArchive(jobId: string, downloadArtifactId: string, pathToArchiveDir: string) {
+export async function downloadAndExtractResultArchive(
+    jobId: string,
+    downloadArtifactId: string | undefined,
+    pathToArchiveDir: string,
+    downloadArtifactType: TransformationDownloadArtifactType
+) {
     const archivePathExists = await fsCommon.existsDir(pathToArchiveDir)
     if (!archivePathExists) {
         await fsCommon.mkdir(pathToArchiveDir)
     }
     const pathToArchive = path.join(pathToArchiveDir, 'ExportResultsArchive.zip')
-    await downloadResultArchive({ jobId, downloadArtifactId, pathToArchive })
+    await downloadResultArchive(jobId, downloadArtifactId, pathToArchive, downloadArtifactType)
 
     let downloadErrorMessage = undefined
     try {
@@ -907,8 +904,17 @@ export async function downloadHilResultArchive(jobId: string, downloadArtifactId
     } catch (e) {
         downloadErrorMessage = (e as Error).message
         getLogger().error(`CodeTransformation: ExportResultArchive error = ${downloadErrorMessage}`)
-        throw new Error('Error downloading HIL artifacts')
+        throw new Error('Error downloading transformation result artifacts')
     }
+}
+
+export async function downloadHilResultArchive(jobId: string, downloadArtifactId: string, pathToArchiveDir: string) {
+    await downloadAndExtractResultArchive(
+        jobId,
+        downloadArtifactId,
+        pathToArchiveDir,
+        TransformationDownloadArtifactType.CLIENT_INSTRUCTIONS
+    )
 
     // manifest.json
     // pomFolder/pom.xml or manifest has pomFolderName path

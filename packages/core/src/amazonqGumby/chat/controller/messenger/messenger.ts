@@ -57,6 +57,7 @@ export enum GumbyNamedMessages {
     COMPILATION_PROGRESS_MESSAGE = 'gumbyProjectCompilationMessage',
     JOB_SUBMISSION_STATUS_MESSAGE = 'gumbyJobSubmissionMessage',
     JOB_SUBMISSION_WITH_DEPENDENCY_STATUS_MESSAGE = 'gumbyJobSubmissionWithDependencyMessage',
+    JOB_FAILED_IN_PRE_BUILD = 'gumbyJobFailedInPreBuildMessage',
 }
 
 export class Messenger {
@@ -556,6 +557,32 @@ ${codeSnippet}
             false,
             message,
             GumbyNamedMessages.JOB_SUBMISSION_WITH_DEPENDENCY_STATUS_MESSAGE
+        )
+    }
+
+    public sendViewBuildLog(tabID: string) {
+        const message = `I am having trouble building your project in the secure build environment and could not complete the transformation.`
+        const messageId = GumbyNamedMessages.JOB_FAILED_IN_PRE_BUILD
+        const buttons: ChatItemButton[] = []
+
+        if (transformByQState.getPreBuildLogFilePath() !== '') {
+            buttons.push({
+                keepCardAfterClick: true,
+                text: `View Build Log`,
+                id: ButtonActions.OPEN_BUILD_LOG,
+            })
+        }
+
+        this.dispatcher.sendChatMessage(
+            new ChatMessage(
+                {
+                    message,
+                    messageType: 'ai-prompt',
+                    messageId,
+                    buttons,
+                },
+                tabID
+            )
         )
     }
 }
