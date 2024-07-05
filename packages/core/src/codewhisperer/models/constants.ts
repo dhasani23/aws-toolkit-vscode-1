@@ -516,11 +516,9 @@ export const jobPartiallyCompletedChatMessage =
 export const jobPartiallyCompletedNotification =
     'Amazon Q upgraded part of your code to Java 17. You can review the diff to see my proposed changes and accept or reject them. The transformation summary has details about the files I updated and the errors that prevented a complete transformation.'
 
-// TO-DO: get text approved
 export const noPomXmlOrBuildGradleFoundChatMessage =
     'Sorry, I could not find a project that I can upgrade. I could not find a pom.xml file or build.gradle / build.gradle.kts file in any of your open projects. Currently, I can only upgrade Java 8 or Java 11 projects built on Maven or Gradle. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
 
-// TO-DO: get text approved
 export const noPomXmlOrBuildGradleFoundNotification =
     'None of your open projects are supported by Amazon Q Code Transformation. Amazon Q could not find a pom.xml file or build.gradle / build.gradle.kts file in any of your open projects. Currently, Amazon Q can only upgrade Java 8 or Java 11 projects built on Maven or Gradle. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
 
@@ -565,11 +563,9 @@ export const changesAppliedChatMessage = 'I applied the changes to your project.
 
 export const changesAppliedNotification = 'Amazon Q applied the changes to your project.'
 
-// TO-DO: get text approved
 export const noOpenProjectsFoundChatMessage =
     'Sorry, I could not find a project that I can upgrade. Currently, I can only upgrade Java 8 or Java 11 projects built on Maven or Gradle. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
 
-// TO-DO: get text approved
 export const noJavaProjectsFoundChatMessage =
     'Sorry, I could not find a project that I can upgrade. Currently, I can only upgrade Java 8 or Java 11 projects built on Maven or Gradle. For more information, see the [Amazon Q documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/code-transformation.html#prerequisites).'
 
@@ -592,12 +588,17 @@ export const cleanInstallErrorChatMessage =
 export const cleanInstallErrorNotification =
     'Amazon Q could not run the Maven clean install command to build your project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'
 
-// TO-DO: get text approved; make this message clear that the transformation will continue anyway if project uses no 1P deps
-export const gradleBuildErrorNotification =
-    'Amazon Q could not build your Gradle project, so any 1P dependencies were not copied over. The transformation is still proceeding as it may succeed if your project does not use any 1P dependencies, but you can also stop the job and address the issues shown in the build-logs.txt file if you know that your project uses 1P dependencies.'
+// TO-DO: delete, this just for AIG
+export const aigGradleBuildErrorNotification = "Amazon Q couldn't build your Gradle project."
 
+export const gradleBuildErrorNotification =
+    "Amazon Q couldn't build your Gradle project. If your project uses 1P dependencies, they weren't copied over. The transformation is continuing as it might succeed if your project does not use any 1P dependencies. If your project uses 1P dependencies, you can stop the transformation and address the issues shown in the build-logs.txt file, and then try again."
+
+export const aigGradleBuildErrorChatMessage = "Sorry, I couldn't build your Gradle project."
+
+// TO-DO: this is currently unused for Gradle since compilation (copy-deps) is treated as optional
 export const gradleBuildErrorChatMessage =
-    'Sorry, I could not build your Gradle project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'
+    "Sorry, I couldn't build your Gradle project, meaning any 1P dependencies in your project weren't copied over. I'm continuing the transformation in case your project doesn't use 1P dependencies. If your project uses 1P dependencies, you can stop the transformation and address the issues shown in the build-logs.txt file, and then try again."
 
 export const enterJavaHomeChatMessage = 'Enter the path to JDK '
 
@@ -626,12 +627,12 @@ export const JDK11VersionNumber = '55'
 export const planTitle = 'Code Transformation plan by Amazon Q'
 
 export const planIntroductionMessage =
-    'Amazon Q reviewed your code and generated a transformation plan. Amazon Q will suggest code changes according to the plan, and you can review the updated code before accepting changes to your files.'
+    'Amazon Q reviewed your code and generated a transformation plan to upgrade your code. Amazon Q will suggest code changes according to the plan, and you can review the updated code before accepting changes to your files.'
 
 export const planHeaderMessage = 'Planned transformation changes'
 
 export const planDisclaimerMessage =
-    'Amazon Q will use the proposed changes as guidance during the transformation. The final code updates might differ from this plan.'
+    'Amazon Q will use the following steps as guidance during the transformation. Throughout the transformation, Amazon Q might improve upon the plan, so the final code updates could differ from the initial plan. These differences will be reflected in the Transformation Summary when the transformation is complete.'
 
 export const formattedStringMap = new Map([
     ['linesOfCode', 'Lines of code in your application'],

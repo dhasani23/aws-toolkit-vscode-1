@@ -15,6 +15,8 @@ import { writeLogs } from './transformFileHandler'
 import { throwIfCancelled } from './transformApiHandler'
 import { globals } from '../../../shared'
 import * as os from 'os'
+import * as fs from 'fs'
+import path from 'path'
 
 // run 'install' with either 'mvnw.cmd', './mvnw', or 'mvn' (if wrapper exists, we use that, otherwise we use regular 'mvn')
 function installMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath: string) {
@@ -161,9 +163,9 @@ export async function prepareProjectDependencies(dependenciesFolder: FolderInfo 
             await prepareGradleProjectDependencies()
         } catch (err) {
             // continue because transformation may still succeed
-            getLogger().info(
-                'CodeTransformation: gradle_copy_deps.py failed, but still continuing the transformation job'
-            )
+            getLogger().info('CodeTransformation: gradle_copy_deps.py failed, terminating the transformation job')
+            // TO-DO: remove "throw err", this just for AIG
+            throw err
         }
     }
 }
@@ -279,12 +281,23 @@ export async function prepareGradleProjectDependencies() {
             transformByQState.appendToErrorLog(`gradle_copy_deps.py succeeded: ${spawnResult.stdout}`)
         }
     } catch (err) {
-        void vscode.window.showErrorMessage(CodeWhispererConstants.gradleBuildErrorNotification)
+        void vscode.window.showErrorMessage(CodeWhispererConstants.aigGradleBuildErrorNotification)
         // open build-logs.txt file to show user error logs
         const logFilePath = await writeLogs()
         const doc = await vscode.workspace.openTextDocument(logFilePath)
         await vscode.window.showTextDocument(doc)
         throw err
+    } finally {
+        /* 
+            delete START directory to reduce upload size as it is not needed.
+            note: some .bin and .bin.lock files can be automatically re-generated
+            which is fine as those files are very small, and this step is just done to
+            reduce the upload size, which is not strictly necessary but just helpful.
+        */
+        const startDirPath = path.join(transformByQState.getProjectPath(), 'qct-gradle', 'START')
+        if (fs.existsSync(startDirPath)) {
+            fs.rmSync(startDirPath, { recursive: true, force: true })
+        }
     }
     throwIfCancelled()
     void vscode.window.showInformationMessage(CodeWhispererConstants.buildSucceededNotification)

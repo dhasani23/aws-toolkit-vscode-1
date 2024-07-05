@@ -325,10 +325,11 @@ export class Messenger {
                 message = CodeWhispererConstants.noPomXmlOrBuildGradleFoundChatMessage
                 break
             case 'could-not-compile-project':
+                // TO-DO: this is currently unused for Gradle since compilation (copy-deps) is treated as optional
                 message =
                     transformByQState.getBuildSystem() === BuildSystem.Maven
                         ? CodeWhispererConstants.cleanInstallErrorChatMessage
-                        : CodeWhispererConstants.gradleBuildErrorChatMessage
+                        : CodeWhispererConstants.aigGradleBuildErrorChatMessage
                 break
             case 'invalid-java-home':
                 message = CodeWhispererConstants.noJavaHomeFoundChatMessage

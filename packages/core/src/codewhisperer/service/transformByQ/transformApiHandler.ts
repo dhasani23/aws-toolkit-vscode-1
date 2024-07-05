@@ -276,6 +276,9 @@ export async function uploadPayload(payloadFileName: string, uploadContext?: Upl
         getLogger().error(`CodeTransformation: UploadArtifactToS3 error: = ${errorMessage}`)
         throw new Error(errorMessage)
     }
+    // TO-DO: delete qct-gradle directory if it exists now that upload has succeeded
+    // or maybe put that code in a finally block right above so that qct-gradle always gets deleted
+
     // UploadContext only exists for subsequent uploads, and they will return a uploadId that is NOT
     // the jobId. Only the initial call will uploadId be the jobId
     if (!uploadContext) {
@@ -391,7 +394,7 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
 
         if (zipManifest instanceof ZipManifest) {
             // buildSystem must be defined at this point
-            zipManifest.buildSystem = transformByQState.getBuildSystem()
+            zipManifest.buildTool = transformByQState.getBuildSystem()
             // not including the "dependencies/" directory for Gradle projects, so omit this key from the manifest.json
             // also, for now, disable HIL for Gradle projects; this is enforced in the backend too
             if (transformByQState.getBuildSystem() === BuildSystem.Gradle) {
@@ -607,6 +610,8 @@ export async function getTransformationPlan(jobId: string) {
         response = await codeWhisperer.codeWhispererClient.codeModernizerGetCodeTransformationPlan({
             transformationJobId: jobId,
         })
+        // TO-DO: delete this for post-AIG
+        getLogger().error('plan response = ' + JSON.stringify(response))
         const apiStartTime = Date.now()
         if (response.$response.requestId) {
             transformByQState.setJobFailureMetadata(` (request ID: ${response.$response.requestId})`)
@@ -619,6 +624,19 @@ export async function getTransformationPlan(jobId: string) {
             codeTransformRequestId: response.$response.requestId,
             result: MetadataResult.Pass,
         })
+
+        // TO-DO: remove this once Gradle plan becomes dynamic
+        if (transformByQState.getBuildSystem() === BuildSystem.Gradle) {
+            const logoIcon = getTransformationIcon('transformLogo')
+            let plan = `![Transform by Q](${logoIcon}) \n # Code Transformation Plan by Amazon Q \n\n`
+            plan += `${CodeWhispererConstants.planIntroductionMessage}\n\n`
+            plan += `\n\n${CodeWhispererConstants.planDisclaimerMessage}\n\n\n\n`
+            // TO-DO: keep or remove .slice(1) based on if step 0 data will be in the GetPlan response
+            for (const step of response.transformationPlan.transformationSteps.slice(1)) {
+                plan += `**${step.name}**\n\n- ${step.description}\n\n\n`
+            }
+            return plan
+        }
 
         const stepZeroProgressUpdates = response.transformationPlan.transformationSteps[0].progressUpdates
 
