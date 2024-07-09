@@ -303,7 +303,7 @@ gradle.rootProject {
     ext.finalDir = "$destDir/qct-gradle/FINAL"
  
     task buildProject(type: Exec) {
-        commandLine "$destDir/gradlew", "build", "-p", destDir, "-g", startDir
+        commandLine "$destDir/gradlew.bat", "build", "-p", destDir, "-g", startDir
     }
  
     task copyModules2 {

@@ -612,6 +612,7 @@ export async function getTransformationPlan(jobId: string) {
         })
         // TO-DO: delete this for post-AIG
         getLogger().error('plan response = ' + JSON.stringify(response))
+        console.log('plan response = ' + JSON.stringify(response))
         const apiStartTime = Date.now()
         if (response.$response.requestId) {
             transformByQState.setJobFailureMetadata(` (request ID: ${response.$response.requestId})`)
@@ -631,8 +632,7 @@ export async function getTransformationPlan(jobId: string) {
             let plan = `![Transform by Q](${logoIcon}) \n # Code Transformation Plan by Amazon Q \n\n`
             plan += `${CodeWhispererConstants.planIntroductionMessage}\n\n`
             plan += `\n\n${CodeWhispererConstants.planDisclaimerMessage}\n\n\n\n`
-            // TO-DO: keep or remove .slice(1) based on if step 0 data will be in the GetPlan response
-            for (const step of response.transformationPlan.transformationSteps.slice(1)) {
+            for (const step of response.transformationPlan.transformationSteps) {
                 plan += `**${step.name}**\n\n- ${step.description}\n\n\n`
             }
             return plan
@@ -712,7 +712,9 @@ export async function getTransformationSteps(jobId: string, handleThrottleFlag: 
             codeTransformRequestId: response.$response.requestId,
             result: MetadataResult.Pass,
         })
-        return response.transformationPlan.transformationSteps.slice(1) // skip step 0 (contains supplemental info)
+        console.log('plan = ' + JSON.stringify(response.transformationPlan.transformationSteps))
+        // TO-DO: add back the .slice(1) once Gradle plan becomes dynamic
+        return response.transformationPlan.transformationSteps // skip step 0 (contains supplemental info)
     } catch (e: any) {
         const errorMessage = (e as Error).message
         getLogger().error(`CodeTransformation: GetTransformationPlan error = ${errorMessage}`)

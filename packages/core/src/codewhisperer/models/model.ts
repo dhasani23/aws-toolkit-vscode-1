@@ -320,7 +320,7 @@ export class ZipManifest {
     buildLogs: string = 'build-logs.txt'
     version: string = '1.0'
     hilCapabilities: string[] | undefined = ['HIL_1pDependency_VersionUpgrade']
-    transformCapabilities: string[] = ['EXPLAINABILITY_V1']
+    // transformCapabilities: string[] = ['EXPLAINABILITY_V1']
     buildTool: BuildSystem | undefined = undefined // TO-DO: a project may contain both a pom.xml and a build.gradle; in which case need to ask customer
 }
 
