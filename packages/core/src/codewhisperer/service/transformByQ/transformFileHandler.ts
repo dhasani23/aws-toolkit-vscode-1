@@ -46,13 +46,13 @@ export async function checkBuildSystem(projectPath: string) {
     return BuildSystem.Unknown
 }
 
-// for Maven (Gradle) projects, ignore the 'target' ('build' and '.gradle') directory as it includes large JAR files
+// for Maven (Gradle) projects, ignore the 'target' ('build', '.gradle', 'bin') directory as it includes large JAR files and .class files
 export function shouldIncludeDirectoryInZip(dirName: string) {
     if (transformByQState.getBuildSystem() === BuildSystem.Maven && dirName === 'target') {
         return false
     } else if (
         transformByQState.getBuildSystem() === BuildSystem.Gradle &&
-        (dirName === 'build' || dirName === '.gradle')
+        (dirName === 'build' || dirName === '.gradle' || dirName === 'bin')
     ) {
         return false
     }

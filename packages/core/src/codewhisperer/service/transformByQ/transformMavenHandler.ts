@@ -15,8 +15,6 @@ import { writeLogs } from './transformFileHandler'
 import { throwIfCancelled } from './transformApiHandler'
 import { globals } from '../../../shared'
 import * as os from 'os'
-import * as fs from 'fs'
-import path from 'path'
 
 // run 'install' with either 'mvnw.cmd', './mvnw', or 'mvn' (if wrapper exists, we use that, otherwise we use regular 'mvn')
 function installMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath: string) {
@@ -287,24 +285,13 @@ export async function prepareGradleProjectDependencies() {
         const doc = await vscode.workspace.openTextDocument(logFilePath)
         await vscode.window.showTextDocument(doc)
         throw err
-    } finally {
-        /* 
-            delete START directory to reduce upload size as it is not needed.
-            note: some .bin and .bin.lock files can be automatically re-generated
-            which is fine as those files are very small, and this step is just done to
-            reduce the upload size, which is not strictly necessary but just helpful.
-        */
-        const startDirPath = path.join(transformByQState.getProjectPath(), 'qct-gradle', 'START')
-        if (fs.existsSync(startDirPath)) {
-            fs.rmSync(startDirPath, { recursive: true, force: true })
-        }
     }
     throwIfCancelled()
     void vscode.window.showInformationMessage(CodeWhispererConstants.buildSucceededNotification)
 }
 
 export async function getVersionData() {
-    const baseCommand = transformByQState.getBuildSystemCommand() // will be one of: 'mvnw.cmd', './mvnw', 'mvn', 'gradlew.bat', './gradlew', 'gradle'
+    const baseCommand = transformByQState.getBuildSystemCommand() // will be one of: '.\mvnw.cmd', './mvnw', 'mvn', '.\gradlew.bat', './gradlew', 'gradle'
     const modulePath = transformByQState.getProjectPath()
     const args = ['-v']
     const spawnResult = spawnSync(baseCommand, args, { cwd: modulePath, shell: true, encoding: 'utf-8' })
@@ -352,7 +339,7 @@ export async function getVersionData() {
 // run maven 'versions:dependency-updates-aggregate-report' with either 'mvnw.cmd', './mvnw', or 'mvn' (if wrapper exists, we use that, otherwise we use regular 'mvn')
 export function runMavenDependencyUpdateCommands(dependenciesFolder: FolderInfo) {
     // baseCommand will be one of: '.\mvnw.cmd', './mvnw', 'mvn'
-    const baseCommand = transformByQState.getBuildSystemCommand() // will be one of: 'mvnw.cmd', './mvnw', 'mvn'
+    const baseCommand = transformByQState.getBuildSystemCommand() // will be one of: '.\mvnw.cmd', './mvnw', 'mvn'
 
     // Note: IntelliJ runs 'clean' separately from 'install'. Evaluate benefits (if any) of this.
     const args = [

@@ -67,14 +67,14 @@ export default class MessengerUtils {
         const uniqueJavaOptions = new Set(detectedJavaVersions)
 
         if (detectedJavaVersions.length > 1) {
-            // this  means there is a Java version whose version we weren't able to determine
-            if (uniqueJavaOptions.has(undefined)) {
+            // this means there is a Java version whose version we weren't able to determine or is not JDK 8/11
+            if (uniqueJavaOptions.has(undefined) || uniqueJavaOptions.has(JDKVersion.UNSUPPORTED)) {
                 javaVersionString = 'Java projects'
             } else {
                 javaVersionString = `Java ${Array.from(uniqueJavaOptions).join(' & ')} projects`
             }
         } else if (detectedJavaVersions.length === 1) {
-            if (!uniqueJavaOptions.has(undefined)) {
+            if (!uniqueJavaOptions.has(undefined) && !uniqueJavaOptions.has(JDKVersion.UNSUPPORTED)) {
                 javaVersionString = `Java ${detectedJavaVersions[0]!.toString()} project`
             }
         }

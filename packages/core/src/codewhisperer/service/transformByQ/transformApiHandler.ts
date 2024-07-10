@@ -289,9 +289,9 @@ export async function uploadPayload(payloadFileName: string, uploadContext?: Upl
     return response.uploadId
 }
 
-const excludedFiles = ['.repositories', '.sha1', '.lock', 'gc.properties']
+const excludedFiles = ['.repositories', '.sha1', '.lock', 'gc.properties', '.dll', 'rewrite.yml', 'init.gradle']
 
-// exclude these files from ZIP as they may interfere with backend build
+// exclude these files from ZIP as they may interfere with backend build or OR steps
 function isExcludedFile(path: string): boolean {
     return excludedFiles.some(extension => path.endsWith(extension))
 }
@@ -612,7 +612,6 @@ export async function getTransformationPlan(jobId: string) {
         })
         // TO-DO: delete this for post-AIG
         getLogger().error('plan response = ' + JSON.stringify(response))
-        console.log('plan response = ' + JSON.stringify(response))
         const apiStartTime = Date.now()
         if (response.$response.requestId) {
             transformByQState.setJobFailureMetadata(` (request ID: ${response.$response.requestId})`)
@@ -712,7 +711,6 @@ export async function getTransformationSteps(jobId: string, handleThrottleFlag: 
             codeTransformRequestId: response.$response.requestId,
             result: MetadataResult.Pass,
         })
-        console.log('plan = ' + JSON.stringify(response.transformationPlan.transformationSteps))
         // TO-DO: add back the .slice(1) once Gradle plan becomes dynamic
         return response.transformationPlan.transformationSteps // skip step 0 (contains supplemental info)
     } catch (e: any) {
