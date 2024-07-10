@@ -289,7 +289,7 @@ export async function uploadPayload(payloadFileName: string, uploadContext?: Upl
     return response.uploadId
 }
 
-const excludedFiles = ['.repositories', '.sha1', '.lock', 'gc.properties', '.dll', 'rewrite.yml', 'init.gradle']
+const excludedFiles = ['.repositories', '.sha1', '.lock', 'gc.properties', '.dll']
 
 // exclude these files from ZIP as they may interfere with backend build or OR steps
 function isExcludedFile(path: string): boolean {
