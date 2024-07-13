@@ -1,0 +1,4 @@
+{
+	"type": "Bug Fix",
+	"description": "fix(amazonq): show latest pre-build error log file from transformation, not the previous one"
+}
