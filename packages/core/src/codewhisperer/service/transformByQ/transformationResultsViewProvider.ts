@@ -367,6 +367,7 @@ export class ProposedTransformationExplorer {
                 throw new Error('Error downloading diff')
             } finally {
                 // This metric is emitted when user clicks Download Proposed Changes button
+                // TO-DO: this can just be replaced with codeTransform_logApiResult, codeTransform_vcsViewerClicked is being re-purposed
                 telemetry.codeTransform_vcsViewerClicked.emit({
                     codeTransformVCSViewerSrcComponents: 'toastNotification',
                     codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
@@ -449,6 +450,9 @@ export class ProposedTransformationExplorer {
                 tabID: ChatSessionManager.Instance.getSession().tabID,
             })
             await reset()
+            // TO-DO: replace with codeTransform_vcsViewerClicked which is being re-purposed to fit this need
+            // and either: add the codeTransformMetadata field to store if diff was Accepted or Rejected,
+            // or, simply use the existing result field to store that info
             telemetry.codeTransform_vcsViewerSubmitted.emit({
                 codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
                 codeTransformJobId: transformByQState.getJobId(),
@@ -461,6 +465,8 @@ export class ProposedTransformationExplorer {
             diffModel.rejectChanges()
             await reset()
             telemetry.ui_click.emit({ elementId: 'transformationHub_rejectChanges' })
+            // TO-DO: replace with codeTransform_vcsViewerClicked, which is being re-purposed to fit this need
+            // OR: this (and vcsViewerSubmitted, above) seems like a duplicate of telemetry.ui_click above?
             telemetry.codeTransform_vcsViewerCanceled.emit({
                 // eslint-disable-next-line id-length
                 codeTransformPatchViewerCancelSrcComponents: 'cancelButton',

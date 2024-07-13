@@ -21,7 +21,7 @@ function installMavenProjectDependencies(dependenciesFolder: FolderInfo, moduleP
     // baseCommand will be one of: '.\mvnw.cmd', './mvnw', 'mvn'
     const baseCommand = transformByQState.getBuildSystemCommand()
 
-    transformByQState.appendToErrorLog(`Running command ${baseCommand} clean install`)
+    transformByQState.appendToLocalBuildErrorLog(`Running command ${baseCommand} clean install`)
 
     // Note: IntelliJ runs 'clean' separately from 'install'. Evaluate benefits (if any) of this.
     const args = [`-Dmaven.repo.local=${dependenciesFolder.path}`, 'clean', 'install', '-q']
@@ -44,7 +44,7 @@ function installMavenProjectDependencies(dependenciesFolder: FolderInfo, moduleP
         let errorLog = ''
         errorLog += spawnResult.error ? JSON.stringify(spawnResult.error) : ''
         errorLog += `${spawnResult.stderr}\n${spawnResult.stdout}`
-        transformByQState.appendToErrorLog(`${baseCommand} ${argString} failed: \n ${errorLog}`)
+        transformByQState.appendToLocalBuildErrorLog(`${baseCommand} ${argString} failed: \n ${errorLog}`)
         getLogger().error(
             `CodeTransformation: Error in running Maven ${argString} command ${baseCommand} = ${errorLog}`
         )
@@ -81,7 +81,7 @@ function installMavenProjectDependencies(dependenciesFolder: FolderInfo, moduleP
         })
         throw new ToolkitError(`Maven ${argString} error`, { code: 'MavenExecutionError' })
     } else {
-        transformByQState.appendToErrorLog(`${baseCommand} ${argString} succeeded`)
+        transformByQState.appendToLocalBuildErrorLog(`${baseCommand} ${argString} succeeded`)
     }
 }
 
@@ -89,7 +89,7 @@ function copyMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath
     // baseCommand will be one of: '.\mvnw.cmd', './mvnw', 'mvn'
     const baseCommand = transformByQState.getBuildSystemCommand()
 
-    transformByQState.appendToErrorLog(`Running command ${baseCommand} copy-dependencies`)
+    transformByQState.appendToLocalBuildErrorLog(`Running command ${baseCommand} copy-dependencies`)
 
     const args = [
         'dependency:copy-dependencies',
@@ -115,7 +115,7 @@ function copyMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath
         let errorLog = ''
         errorLog += spawnResult.error ? JSON.stringify(spawnResult.error) : ''
         errorLog += `${spawnResult.stderr}\n${spawnResult.stdout}`
-        transformByQState.appendToErrorLog(`${baseCommand} copy-dependencies failed: \n ${errorLog}`)
+        transformByQState.appendToLocalBuildErrorLog(`${baseCommand} copy-dependencies failed: \n ${errorLog}`)
         getLogger().info(
             `CodeTransformation: Maven copy-dependencies command ${baseCommand} failed, but still continuing with transformation: ${errorLog}`
         )
@@ -147,7 +147,7 @@ function copyMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath
         })
         throw new Error('Maven copy-deps error')
     } else {
-        transformByQState.appendToErrorLog(`${baseCommand} copy-dependencies succeeded`)
+        transformByQState.appendToLocalBuildErrorLog(`${baseCommand} copy-dependencies succeeded`)
     }
 }
 
@@ -210,7 +210,7 @@ async function getPythonExecutable() {
 
 export async function prepareGradleProjectDependencies() {
     try {
-        transformByQState.appendToErrorLog(`Running gradle_copy_deps.py to copy Gradle project dependencies`)
+        transformByQState.appendToLocalBuildErrorLog(`Running gradle_copy_deps.py to copy Gradle project dependencies`)
         let scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/gradle_copy_deps.py')
         if (os.platform() === 'win32') {
             scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/windows_gradle_copy_deps.py')
@@ -224,7 +224,7 @@ export async function prepareGradleProjectDependencies() {
         const pythonExecutable = await getPythonExecutable()
         if (!pythonExecutable) {
             const errorMessage = 'No Python executable found (checked python, python3, py, and py3)'
-            transformByQState.appendToErrorLog(errorMessage)
+            transformByQState.appendToLocalBuildErrorLog(errorMessage)
             getLogger().error(errorMessage)
             throw new Error(errorMessage)
         }
@@ -243,7 +243,7 @@ export async function prepareGradleProjectDependencies() {
             let errorLog = ''
             errorLog += spawnResult.error ? JSON.stringify(spawnResult.error) : ''
             errorLog += `${spawnResult.stderr}\n${spawnResult.stdout}`
-            transformByQState.appendToErrorLog(`gradle_copy_deps.py failed: \n ${errorLog}`)
+            transformByQState.appendToLocalBuildErrorLog(`gradle_copy_deps.py failed: \n ${errorLog}`)
             getLogger().error(`CodeTransformation: Error in running gradle_copy_deps.py = ${errorLog}`)
             let errorReason = ''
             if (spawnResult.stdout) {
@@ -266,8 +266,7 @@ export async function prepareGradleProjectDependencies() {
             } else if (gradleBuildCommand === '.\\gradlew.bat') {
                 gradleBuildCommand = 'gradlew.bat'
             }
-            // TO-DO: fix telemetry; make codeTransform_mvnBuildFailed metric and codeTransformMavenBuildCommand field more generic
-            // Done
+            // TO-DO: move this in the finally block, use the new `codeTransform_build` metric, and use status code to decide result
             telemetry.codeTransform_mvnBuildFailed.emit({
                 codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
                 codeTransformMavenBuildCommand: gradleBuildCommand as CodeTransformMavenBuildCommand,
@@ -276,7 +275,7 @@ export async function prepareGradleProjectDependencies() {
             })
             throw new Error(`gradle_copy_deps.py failed`)
         } else {
-            transformByQState.appendToErrorLog(`gradle_copy_deps.py succeeded: ${spawnResult.stdout}`)
+            transformByQState.appendToLocalBuildErrorLog(`gradle_copy_deps.py succeeded: ${spawnResult.stdout}`)
         }
     } catch (err) {
         void vscode.window.showErrorMessage(CodeWhispererConstants.aigGradleBuildErrorNotification)

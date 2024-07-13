@@ -11,6 +11,7 @@ import { transformByQState } from '../../codewhisperer/models/model'
 import { calculateTotalLatency } from '../../amazonqGumby/telemetry/codeTransformTelemetry'
 import { telemetry } from '../telemetry/telemetry'
 import { fsCommon } from '../../srcShared/fs'
+import { MetadataResult } from '../telemetry/telemetryClient'
 
 /**
  * This class represents the structure of the archive returned by the ExportResultArchive endpoint
@@ -21,6 +22,8 @@ export class ExportResultArchiveStructure {
     static readonly PathToManifest = 'manifest.json'
 }
 
+// TO-DO: combine codeTransform_logApiLatency and codeTransform_logApiError into codeTransform_logApiResult
+// here and everywhere else (mostly transformApiHandler.ts)
 export async function downloadExportResultArchive(
     cwStreamingClient: CodeWhispererStreaming,
     exportResultArchiveArgs: ExportResultArchiveCommandInput,
@@ -28,31 +31,38 @@ export async function downloadExportResultArchive(
 ) {
     const apiStartTime = Date.now()
     let totalDownloadBytes = 0
-    const result = await cwStreamingClient.exportResultArchive(exportResultArchiveArgs)
+    let statusMessage = 'DownloadSucceeded'
+    let result = undefined
+    try {
+        result = await cwStreamingClient.exportResultArchive(exportResultArchiveArgs)
 
-    const buffer = []
+        const buffer = []
 
-    if (result.body === undefined) {
-        throw new ToolkitError('Empty response from Amazon Q inline suggestions streaming service')
-    }
+        if (result.body === undefined) {
+            throw new ToolkitError('Empty response from Amazon Q inline suggestions streaming service')
+        }
 
-    for await (const chunk of result.body) {
-        if (chunk.binaryPayloadEvent) {
-            const chunkData = chunk.binaryPayloadEvent
-            if (chunkData.bytes) {
-                buffer.push(chunkData.bytes)
-                totalDownloadBytes += chunkData.bytes?.length
+        for await (const chunk of result.body) {
+            if (chunk.binaryPayloadEvent) {
+                const chunkData = chunk.binaryPayloadEvent
+                if (chunkData.bytes) {
+                    buffer.push(chunkData.bytes)
+                    totalDownloadBytes += chunkData.bytes?.length
+                }
             }
         }
+        await fsCommon.writeFile(toPath, Buffer.concat(buffer))
+    } catch (e: any) {
+        statusMessage = (e as Error).message
+    } finally {
+        telemetry.codeTransform_logApiLatency.emit({
+            codeTransformApiNames: 'ExportResultArchive',
+            codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
+            codeTransformJobId: transformByQState.getJobId(),
+            codeTransformRunTimeLatency: calculateTotalLatency(apiStartTime),
+            codeTransformTotalByteSize: totalDownloadBytes,
+            codeTransformRequestId: result !== undefined ? result.$metadata.requestId : '',
+            result: statusMessage ? MetadataResult.Fail : MetadataResult.Pass,
+        })
     }
-
-    await fsCommon.writeFile(toPath, Buffer.concat(buffer))
-    telemetry.codeTransform_logApiLatency.emit({
-        codeTransformApiNames: 'ExportResultArchive',
-        codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-        codeTransformJobId: transformByQState.getJobId(),
-        codeTransformRunTimeLatency: calculateTotalLatency(apiStartTime),
-        codeTransformTotalByteSize: totalDownloadBytes,
-        codeTransformRequestId: result.$metadata.requestId,
-    })
 }

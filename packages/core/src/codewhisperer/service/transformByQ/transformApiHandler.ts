@@ -276,8 +276,6 @@ export async function uploadPayload(payloadFileName: string, uploadContext?: Upl
         getLogger().error(`CodeTransformation: UploadArtifactToS3 error: = ${errorMessage}`)
         throw new Error(errorMessage)
     }
-    // TO-DO: delete qct-gradle directory if it exists now that upload has succeeded
-    // or maybe put that code in a finally block right above so that qct-gradle always gets deleted
 
     // UploadContext only exists for subsequent uploads, and they will return a uploadId that is NOT
     // the jobId. Only the initial call will uploadId be the jobId
@@ -291,7 +289,7 @@ export async function uploadPayload(payloadFileName: string, uploadContext?: Upl
 
 const excludedFiles = ['.repositories', '.sha1', '.lock', 'gc.properties', '.dll']
 
-// exclude these files from ZIP as they may interfere with backend build or OR steps
+// exclude these files from ZIP as they may interfere with backend build
 function isExcludedFile(path: string): boolean {
     return excludedFiles.some(extension => path.endsWith(extension))
 }
@@ -610,8 +608,6 @@ export async function getTransformationPlan(jobId: string) {
         response = await codeWhisperer.codeWhispererClient.codeModernizerGetCodeTransformationPlan({
             transformationJobId: jobId,
         })
-        // TO-DO: delete this for post-AIG
-        getLogger().error('plan response = ' + JSON.stringify(response))
         const apiStartTime = Date.now()
         if (response.$response.requestId) {
             transformByQState.setJobFailureMetadata(` (request ID: ${response.$response.requestId})`)
@@ -625,7 +621,7 @@ export async function getTransformationPlan(jobId: string) {
             result: MetadataResult.Pass,
         })
 
-        // TO-DO: remove this once Gradle plan becomes dynamic
+        // TO-DO: remove this once Gradle plan becomes dynamic, and don't forget to un-comment EXPLAINABILITY in manifest
         if (transformByQState.getBuildSystem() === BuildSystem.Gradle) {
             const logoIcon = getTransformationIcon('transformLogo')
             let plan = `![Transform by Q](${logoIcon}) \n # Code Transformation Plan by Amazon Q \n\n`

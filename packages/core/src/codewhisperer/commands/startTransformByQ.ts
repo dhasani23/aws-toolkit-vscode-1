@@ -542,7 +542,7 @@ export async function pollTransformationStatusUntilPlanReady(jobId: string) {
         const pathToLog = path.join(tmpDir, 'buildCommandOutput.log')
         transformByQState.setPreBuildLogFilePath(pathToLog)
 
-        if (fs.existsSync(pathToLog)) {
+        if (fs.existsSync(pathToLog) && !transformByQState.isCancelled()) {
             throw new TransformationPreBuildError()
         } else {
             throw new PollJobError()
@@ -662,9 +662,7 @@ export async function postTransformationJob() {
     const mavenVersionInfoMessage = `${versionInfo[0]} (${transformByQState.getBuildSystemCommand()})`
     const javaVersionInfoMessage = `${versionInfo[1]} (${transformByQState.getBuildSystemCommand()})`
 
-    // Note: IntelliJ implementation of ResultStatusMessage includes additional metadata such as jobId.
-    // TO-DO: rename codeTransformLocalMavenVersion to codeTransformLocalBuildSystemVersion
-    // Done
+    // TO-DO: replace codeTransformLocalMavenVersion with codeTransformLocalBuildSystemVersion
     telemetry.codeTransform_totalRunTime.emit({
         codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
         codeTransformResultStatusMessage: resultStatusMessage,
@@ -741,11 +739,11 @@ export async function cleanupTransformationJob() {
 }
 
 export async function resetDebugArtifacts() {
-    const buildLogPath = transformByQState.getPreBuildLogFilePath()
-    if (buildLogPath && fs.existsSync(buildLogPath)) {
-        fs.rmSync(path.dirname(transformByQState.getPreBuildLogFilePath()), { recursive: true, force: true })
+    const buildLogDir = path.join(os.tmpdir(), 'q-transformation-build-logs')
+    if (fs.existsSync(buildLogDir)) {
+        fs.rmSync(buildLogDir, { recursive: true, force: true })
+        transformByQState.setPreBuildLogFilePath('')
     }
-    transformByQState.setPreBuildLogFilePath('')
 }
 
 export async function stopTransformByQ(

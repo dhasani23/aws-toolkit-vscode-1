@@ -320,7 +320,7 @@ export class ZipManifest {
     buildLogs: string = 'build-logs.txt'
     version: string = '1.0'
     hilCapabilities: string[] | undefined = ['HIL_1pDependency_VersionUpgrade']
-    // transformCapabilities: string[] = ['EXPLAINABILITY_V1']
+    // transformCapabilities: string[] = ['EXPLAINABILITY_V1'] // TO-DO: uncomment this once Gradle plan becomes dynamic
     buildTool: BuildSystem | undefined = undefined // TO-DO: a project may contain both a pom.xml and a build.gradle; in which case need to ask customer
 }
 
@@ -399,7 +399,7 @@ export class TransformByQState {
 
     private jobFailureErrorChatMessage: string | undefined = undefined
 
-    private errorLog: string = ''
+    private localBuildErrorLog: string = ''
 
     private buildSystemCommand: string = ''
 
@@ -509,8 +509,8 @@ export class TransformByQState {
         return this.jobFailureErrorChatMessage
     }
 
-    public getErrorLog() {
-        return this.errorLog
+    public getLocalBuildErrorLog() {
+        return this.localBuildErrorLog
     }
 
     public getBuildSystemCommand() {
@@ -537,8 +537,8 @@ export class TransformByQState {
         return this.intervalId
     }
 
-    public appendToErrorLog(message: string) {
-        this.errorLog += `${message}\n\n`
+    public appendToLocalBuildErrorLog(message: string) {
+        this.localBuildErrorLog += `${message}\n\n`
     }
 
     public setToNotStarted() {
@@ -665,8 +665,8 @@ export class TransformByQState {
         sessionJobHistory = {}
     }
 
-    public resetErrorLog() {
-        this.errorLog = ''
+    public resetLocalBuildErrorLog() {
+        this.localBuildErrorLog = ''
     }
 
     public setJobDefaults() {
@@ -675,7 +675,7 @@ export class TransformByQState {
         this.jobFailureErrorChatMessage = undefined
         this.jobFailureMetadata = ''
         this.payloadFilePath = ''
-        this.errorLog = ''
+        this.localBuildErrorLog = ''
         this.intervalId = undefined
     }
 }

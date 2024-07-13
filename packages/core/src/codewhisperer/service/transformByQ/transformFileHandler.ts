@@ -24,7 +24,7 @@ export function createMavenDependenciesFolderInfo(): FolderInfo {
 
 export async function writeLogs() {
     const logFilePath = path.join(os.tmpdir(), 'build-logs.txt')
-    writeFileSync(logFilePath, transformByQState.getErrorLog())
+    writeFileSync(logFilePath, transformByQState.getLocalBuildErrorLog())
     return logFilePath
 }
 
@@ -46,13 +46,13 @@ export async function checkBuildSystem(projectPath: string) {
     return BuildSystem.Unknown
 }
 
-// for Maven (Gradle) projects, ignore the 'target' ('build', '.gradle', 'bin') directory as it includes large JAR files and .class files
+// for Maven (Gradle) projects, ignore the 'target' ('build', '.gradle', 'bin', 'START') directory as it includes large JAR files and .class files
 export function shouldIncludeDirectoryInZip(dirName: string) {
     if (transformByQState.getBuildSystem() === BuildSystem.Maven && dirName === 'target') {
         return false
     } else if (
         transformByQState.getBuildSystem() === BuildSystem.Gradle &&
-        (dirName === 'build' || dirName === '.gradle' || dirName === 'bin')
+        (dirName === 'build' || dirName === '.gradle' || dirName === 'bin' || dirName === 'START')
     ) {
         return false
     }

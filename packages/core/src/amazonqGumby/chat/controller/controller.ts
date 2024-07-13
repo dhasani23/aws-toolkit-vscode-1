@@ -268,6 +268,7 @@ export class GumbyController {
         const typedAction = MessengerUtils.stringToEnumValue(ButtonActions, message.action as any)
         switch (typedAction) {
             case ButtonActions.CONFIRM_TRANSFORMATION_FORM:
+                await resetDebugArtifacts()
                 await this.initiateTransformationOnProject(message)
                 break
             case ButtonActions.CANCEL_TRANSFORMATION_FORM:
@@ -300,7 +301,7 @@ export class GumbyController {
                 break
             case ButtonActions.OPEN_BUILD_LOG:
                 await openBuildLogFile()
-                this.messenger.sendViewBuildLog(message.tabID)
+                this.messenger.sendViewBuildLog(message.tabID) // re-send to persist the button
                 break
         }
     }
@@ -340,8 +341,7 @@ export class GumbyController {
         }
 
         const projectPath = transformByQState.getProjectPath()
-        // TO-DO: add a field to hold the build system (Maven or Gradle)
-        // Done
+        // TO-DO: add codeTransformBuildSystem field to this metric
         telemetry.codeTransform_jobStartedCompleteFromPopupDialog.emit({
             codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
             codeTransformJavaSourceVersionsAllowed: JDKToTelemetryValue(
@@ -359,7 +359,7 @@ export class GumbyController {
             await compileProject()
         } catch (err: any) {
             this.messenger.sendUnrecoverableErrorResponse('could-not-compile-project', message.tabID)
-            transformByQState.resetErrorLog()
+            transformByQState.resetLocalBuildErrorLog()
             // reset state to allow "Start a new transformation" button to work
             this.sessionStorage.getSession().conversationState = ConversationState.IDLE
             throw err
@@ -476,6 +476,7 @@ export class GumbyController {
                 undefined,
                 GumbyNamedMessages.JOB_FAILED_IN_PRE_BUILD
             )
+            await openBuildLogFile()
             this.messenger.sendViewBuildLog(message.tabID)
         }
     }
