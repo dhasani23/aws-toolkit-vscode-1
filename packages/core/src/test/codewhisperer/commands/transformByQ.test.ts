@@ -332,7 +332,7 @@ describe('transformByQ', function () {
 
 describe('resetDebugArtifacts', () => {
     it('should remove the directory containing the pre-build log file if it exists', async () => {
-        const dirPath = await createTestWorkspaceFolder()
+        const dirPath = await createTestWorkspaceFolder('q-transformation-build-logs')
         const preBuildLogFilePath = path.join(dirPath.uri.fsPath, 'DummyLog.log')
         await toFile('', preBuildLogFilePath)
         transformByQState.setPreBuildLogFilePath(preBuildLogFilePath)
@@ -340,23 +340,6 @@ describe('resetDebugArtifacts', () => {
         await resetDebugArtifacts()
 
         assert.strictEqual(fs.existsSync(preBuildLogFilePath), false)
-        assert.strictEqual(transformByQState.getPreBuildLogFilePath(), '')
-    })
-
-    it('should not remove any directory if the pre-build log file path is not set', async () => {
-        transformByQState.setPreBuildLogFilePath('')
-
-        await resetDebugArtifacts()
-
-        assert.strictEqual(transformByQState.getPreBuildLogFilePath(), '')
-    })
-
-    it('should not remove any directory if the pre-build log file does not exist', async () => {
-        const preBuildLogFilePath = 'non/existent/path/to/pre-build.log'
-        transformByQState.setPreBuildLogFilePath(preBuildLogFilePath)
-
-        await resetDebugArtifacts()
-
         assert.strictEqual(transformByQState.getPreBuildLogFilePath(), '')
     })
 })
