@@ -54,6 +54,7 @@ export async function downloadExportResultArchive(
         await fsCommon.writeFile(toPath, Buffer.concat(buffer))
     } catch (e: any) {
         statusMessage = (e as Error).message
+        throw e
     } finally {
         telemetry.codeTransform_logApiLatency.emit({
             codeTransformApiNames: 'ExportResultArchive',
