@@ -348,11 +348,11 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
             let sourceFilesSize = 0
             for (const file of sourceFiles) {
                 if ((await fs.stat(file)).isDirectory()) {
-                    getLogger().info(`CodeTransformation: Skipping directory, likely a symlink`)
+                    getLogger().info(`CodeTransformation: Skipping directory: ${file}, likely a symlink`)
                     continue
                 }
                 if (isExcludedFile(file)) {
-                    getLogger().info(`CodeTransformation: Skipping excluded file`)
+                    getLogger().info(`CodeTransformation: Skipping excluded file: ${file}`)
                     continue
                 }
                 const relativePath = path.relative(modulePath, file)
