@@ -347,7 +347,12 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
             const sourceFiles = getFilesRecursively(modulePath, false)
             let sourceFilesSize = 0
             for (const file of sourceFiles) {
+                if ((await fs.stat(file)).isDirectory()) {
+                    getLogger().info(`CodeTransformation: Skipping directory, likely a symlink`)
+                    continue
+                }
                 if (isExcludedFile(file)) {
+                    getLogger().info(`CodeTransformation: Skipping excluded file`)
                     continue
                 }
                 const relativePath = path.relative(modulePath, file)
@@ -424,7 +429,7 @@ export async function zipCode({ dependenciesFolder, humanInTheLoopFlag, modulePa
             result: MetadataResult.Fail,
             reason: 'ZipCreationFailed',
         })
-        throw Error('Failed to zip project')
+        throw Error('Failed to zip project due to: ' + (e as Error).message)
     } finally {
         if (logFilePath) {
             fs.rmSync(logFilePath)

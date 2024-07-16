@@ -688,9 +688,8 @@ export async function postTransformationJob() {
             })
     }
 
-    if (transformByQState.getPayloadFilePath() !== '') {
-        // TO-DO: uncomment this out for public toolkit, but keep it commented out for AIG custom build
-        // fs.rmSync(transformByQState.getPayloadFilePath(), { recursive: true, force: true }) // delete ZIP if it exists
+    if (fs.existsSync(transformByQState.getPayloadFilePath())) {
+        fs.rmSync(transformByQState.getPayloadFilePath(), { recursive: true, force: true }) // delete ZIP if it exists
     }
 }
 
