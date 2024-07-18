@@ -24,12 +24,16 @@ import {
     openHilPomFile,
     postTransformationJob,
     processTransformFormInput,
-    resetDebugArtifacts,
     startTransformByQ,
     stopTransformByQ,
     validateCanCompileProject,
 } from '../../../codewhisperer/commands/startTransformByQ'
-import { JDKVersion, TransformationCandidateProject, transformByQState } from '../../../codewhisperer/models/model'
+import {
+    BuildSystem,
+    JDKVersion,
+    TransformationCandidateProject,
+    transformByQState,
+} from '../../../codewhisperer/models/model'
 import {
     AlternateDependencyVersionsNotFoundError,
     JavaHomeNotSetError,
@@ -268,10 +272,15 @@ export class GumbyController {
         const typedAction = MessengerUtils.stringToEnumValue(ButtonActions, message.action as any)
         switch (typedAction) {
             case ButtonActions.CONFIRM_TRANSFORMATION_FORM:
-                await resetDebugArtifacts()
                 await this.initiateTransformationOnProject(message)
                 break
             case ButtonActions.CANCEL_TRANSFORMATION_FORM:
+                this.messenger.sendJobFinishedMessage(message.tabID, CodeWhispererConstants.jobCancelledChatMessage)
+                break
+            case ButtonActions.CONFIRM_BUILD_SYSTEM_FORM:
+                await this.handleBuildSystemForm(message)
+                break
+            case ButtonActions.CANCEL_BUILD_SYSTEM_FORM:
                 this.messenger.sendJobFinishedMessage(message.tabID, CodeWhispererConstants.jobCancelledChatMessage)
                 break
             case ButtonActions.VIEW_TRANSFORMATION_HUB:
@@ -285,7 +294,6 @@ export class GumbyController {
                 break
             case ButtonActions.CONFIRM_START_TRANSFORMATION_FLOW:
                 this.resetTransformationChatFlow()
-                await resetDebugArtifacts()
                 this.messenger.sendCommandMessage({ ...message, command: GumbyCommands.CLEAR_CHAT })
                 await this.transformInitiated(message)
                 break
@@ -306,7 +314,7 @@ export class GumbyController {
         }
     }
 
-    // prompt user to pick project and specify source JDK version
+    // show user which project they selected in chat
     private async initiateTransformationOnProject(message: any) {
         const authType = await getAuthType()
         telemetry.codeTransform_jobIsStartedFromChatPrompt.emit({
@@ -326,13 +334,34 @@ export class GumbyController {
             return
         }
 
-        const buildSystem = await checkBuildSystem(pathToProject)
-        getLogger().info(`Selected project uses build system = ${buildSystem}`)
-        await processTransformFormInput(pathToProject, fromJDKVersion, toJDKVersion, buildSystem)
+        await processTransformFormInput(pathToProject, fromJDKVersion, toJDKVersion)
+
+        // at this point, buildSystems is either [Maven], [Gradle], or [Maven, Gradle]
+        const buildSystems = await checkBuildSystem(pathToProject)
+        let selectedProjectBuildSystem = undefined
+        if (buildSystems.length === 2) {
+            // TO-DO: revert to 1
+            selectedProjectBuildSystem = buildSystems[0]
+        } else {
+            // multiple build systems present, so ask user to pick one
+            await this.messenger.sendBuildSystemPrompt(message.tabID)
+            return
+        }
+        getLogger().info(`Selected project uses build system: ${selectedProjectBuildSystem}`)
+        transformByQState.setBuildSystem(selectedProjectBuildSystem)
         await this.validateBuildWithPromptOnError(message)
     }
 
-    private async prepareProjectForSubmission(message: { pathToJavaHome: string; tabID: string }): Promise<void> {
+    private async handleBuildSystemForm(message: any) {
+        const buildSystem: BuildSystem = message.formSelectedValues['GumbyTransformBuildSystemForm']
+        getLogger().info(`Selected project uses Maven and Gradle; user selected build system: ${buildSystem}`)
+        transformByQState.setBuildSystem(buildSystem)
+        // this message obj is from the build system form, not the project selection form,
+        // which is fine since validateBuildWithPromptOnError just needs the tab ID here
+        await this.validateBuildWithPromptOnError(message)
+    }
+
+    private async prepareProjectForSubmission(message: any): Promise<void> {
         if (message.pathToJavaHome) {
             transformByQState.setJavaHome(message.pathToJavaHome)
             getLogger().info(
@@ -385,7 +414,7 @@ export class GumbyController {
         await startTransformByQ()
     }
 
-    private async validateBuildWithPromptOnError(message: any | undefined = undefined): Promise<void> {
+    private async validateBuildWithPromptOnError(message: any): Promise<void> {
         try {
             await validateCanCompileProject()
         } catch (err: any) {

@@ -588,17 +588,9 @@ export const cleanInstallErrorChatMessage =
 export const cleanInstallErrorNotification =
     'Amazon Q could not run the Maven clean install command to build your project. For more information, see the [Amazon Q Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/aws-builder-use-ug/troubleshooting-code-transformation.html#maven-commands-failing).'
 
-// TO-DO: delete, this just for AIG
-export const aigGradleBuildErrorNotification = "Amazon Q couldn't build your Gradle project."
+export const gradleBuildErrorNotification = "Amazon Q couldn't build your Gradle project."
 
-export const gradleBuildErrorNotification =
-    "Amazon Q couldn't build your Gradle project. If your project uses 1P dependencies, they weren't copied over. The transformation is continuing as it might succeed if your project does not use any 1P dependencies. If your project uses 1P dependencies, you can stop the transformation and address the issues shown in the build-logs.txt file, and then try again."
-
-export const aigGradleBuildErrorChatMessage = "Sorry, I couldn't build your Gradle project."
-
-// TO-DO: this is currently unused for Gradle since compilation (copy-deps) is treated as optional
-export const gradleBuildErrorChatMessage =
-    "Sorry, I couldn't build your Gradle project, meaning any 1P dependencies in your project weren't copied over. I'm continuing the transformation in case your project doesn't use 1P dependencies. If your project uses 1P dependencies, you can stop the transformation and address the issues shown in the build-logs.txt file, and then try again."
+export const gradleBuildErrorChatMessage = "Sorry, I couldn't build your Gradle project."
 
 export const enterJavaHomeChatMessage = 'Enter the path to JDK '
 

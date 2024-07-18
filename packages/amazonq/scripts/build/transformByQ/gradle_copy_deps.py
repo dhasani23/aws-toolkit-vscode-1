@@ -404,7 +404,6 @@ def run(directory_path):
         except Exception as e:
             print(f"Error making gradlew executable, going to continue anyway: {e}")
     else:
-        # TO-DO: get text approved
         print("gradlew executable not found. Please ensure you have a Gradle wrapper at the root of your project. Run 'gradle wrapper' to generate one.")
         sys.exit(1)
     try:

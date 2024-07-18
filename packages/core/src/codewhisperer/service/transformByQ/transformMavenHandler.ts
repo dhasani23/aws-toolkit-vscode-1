@@ -160,9 +160,7 @@ export async function prepareProjectDependencies(dependenciesFolder: FolderInfo 
         try {
             await prepareGradleProjectDependencies()
         } catch (err) {
-            // continue because transformation may still succeed
             getLogger().info('CodeTransformation: gradle_copy_deps.py failed, terminating the transformation job')
-            // TO-DO: remove "throw err", this just for AIG
             throw err
         }
     }
@@ -223,11 +221,31 @@ export async function prepareGradleProjectDependencies() {
 
         const pythonExecutable = await getPythonExecutable()
         if (!pythonExecutable) {
-            const errorMessage = 'No Python executable found (checked python, python3, py, and py3)'
+            const errorMessage =
+                'No Python executable found (checked python, python3, py, and py3). Please install Python and try again.'
             transformByQState.appendToLocalBuildErrorLog(errorMessage)
             getLogger().error(errorMessage)
             throw new Error(errorMessage)
         }
+
+        const buildSystemCommand = transformByQState.getBuildSystemCommand() // can be ./gradlew, .\gradlew.bat, or gradle
+        if (buildSystemCommand === 'gradle') {
+            // means Gradle wrapper not present in project, try to create it
+            const spawnResult = spawnSync('gradle', ['wrapper'], {
+                cwd: transformByQState.getProjectPath(),
+                shell: true,
+                encoding: 'utf-8',
+                env: environment,
+                maxBuffer: CodeWhispererConstants.maxBufferSize,
+            })
+            if (spawnResult.status !== 0) {
+                const errorMessage = `Failed to create Gradle wrapper:\n\n${spawnResult.stderr}\n\n${spawnResult.stdout}\n\nEnsure a Gradle wrapper is present in your project before retrying. You should ensure you have Gradle installed by running gradle -v, then run gradle wrapper to generate the wrapper.`
+                transformByQState.appendToLocalBuildErrorLog(errorMessage)
+                getLogger().error(errorMessage)
+                throw new Error(errorMessage)
+            }
+        }
+
         // shell: false because project path is passed as an arg to the Python script
         // and any special characters in that path will be interpreted by the shell
         const spawnResult = spawnSync(pythonExecutable, args, {
@@ -278,7 +296,7 @@ export async function prepareGradleProjectDependencies() {
             transformByQState.appendToLocalBuildErrorLog(`gradle_copy_deps.py succeeded: ${spawnResult.stdout}`)
         }
     } catch (err) {
-        void vscode.window.showErrorMessage(CodeWhispererConstants.aigGradleBuildErrorNotification)
+        void vscode.window.showErrorMessage(CodeWhispererConstants.gradleBuildErrorNotification)
         // open build-logs.txt file to show user error logs
         const logFilePath = await writeLogs()
         const doc = await vscode.workspace.openTextDocument(logFilePath)
@@ -330,7 +348,7 @@ export async function getVersionData() {
         }
     }
     getLogger().info(
-        `CodeTransformation: Ran ${baseCommand} to get build system version = ${localBuildSystemVersion} and Java version = ${localJavaVersion} with project JDK = ${transformByQState.getSourceJDKVersion()}`
+        `CodeTransformation: Ran ${baseCommand} -v to get build system version = ${localBuildSystemVersion} and Java version = ${localJavaVersion} with project JDK = ${transformByQState.getSourceJDKVersion()}`
     )
     return [localBuildSystemVersion, localJavaVersion]
 }

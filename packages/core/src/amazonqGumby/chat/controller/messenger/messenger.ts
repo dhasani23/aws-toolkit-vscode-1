@@ -115,6 +115,48 @@ export class Messenger {
         this.dispatcher.sendAuthenticationUpdate(new AuthenticationUpdateMessage(gumbyEnabled, authenticatingTabIDs))
     }
 
+    // for when both a pom.xml and a build.gradle / build.gradle.kts detected (rare)
+    public async sendBuildSystemPrompt(tabID: string) {
+        const formItems: ChatItemFormItem[] = []
+
+        formItems.push({
+            id: 'GumbyTransformBuildSystemForm',
+            type: 'select',
+            title: 'Choose the build system of the project',
+            mandatory: true,
+            options: [
+                {
+                    value: BuildSystem.Maven,
+                    label: BuildSystem.Maven.toString(),
+                },
+                {
+                    value: BuildSystem.Gradle,
+                    label: BuildSystem.Gradle.toString(),
+                },
+            ],
+        })
+
+        // TO-DO: do we need the below?
+        this.dispatcher.sendAsyncEventProgress(
+            new AsyncEventProgressMessage(tabID, {
+                inProgress: false,
+                message: undefined,
+            })
+        )
+
+        this.dispatcher.sendChatPrompt(
+            new ChatPrompt(
+                {
+                    message: 'Q Code Transformation',
+                    formItems: formItems,
+                },
+                'TransformBuildSystemForm',
+                tabID,
+                false
+            )
+        )
+    }
+
     public async sendProjectPrompt(projects: TransformationCandidateProject[], tabID: string) {
         const projectFormOptions: { value: any; label: string }[] = []
         const detectedJavaVersions = new Array<JDKVersion | undefined>()
@@ -165,7 +207,7 @@ export class Messenger {
             mandatory: true,
             options: [
                 {
-                    value: JDKVersion.JDK17.toString(),
+                    value: JDKVersion.JDK17,
                     label: JDKVersion.JDK17.toString(),
                 },
             ],
@@ -325,11 +367,10 @@ export class Messenger {
                 message = CodeWhispererConstants.noPomXmlOrBuildGradleFoundChatMessage
                 break
             case 'could-not-compile-project':
-                // TO-DO: this is currently unused for Gradle since compilation (copy-deps) is treated as optional
                 message =
                     transformByQState.getBuildSystem() === BuildSystem.Maven
                         ? CodeWhispererConstants.cleanInstallErrorChatMessage
-                        : CodeWhispererConstants.aigGradleBuildErrorChatMessage
+                        : CodeWhispererConstants.gradleBuildErrorChatMessage
                 break
             case 'invalid-java-home':
                 message = CodeWhispererConstants.noJavaHomeFoundChatMessage

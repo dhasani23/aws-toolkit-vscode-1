@@ -913,17 +913,17 @@ export async function downloadAndExtractResultArchive(
         await fsCommon.mkdir(pathToArchiveDir)
     }
     const pathToArchive = path.join(pathToArchiveDir, 'ExportResultsArchive.zip')
-    await downloadResultArchive(jobId, downloadArtifactId, pathToArchive, downloadArtifactType)
 
     let downloadErrorMessage = undefined
     try {
         // Download and deserialize the zip
+        await downloadResultArchive(jobId, downloadArtifactId, pathToArchive, downloadArtifactType)
         const zip = new AdmZip(pathToArchive)
         zip.extractAllTo(pathToArchiveDir)
     } catch (e) {
         downloadErrorMessage = (e as Error).message
         getLogger().error(`CodeTransformation: ExportResultArchive error = ${downloadErrorMessage}`)
-        throw new Error('Error downloading transformation result artifacts')
+        throw new Error('Error downloading transformation result artifacts: ' + downloadErrorMessage)
     }
 }
 

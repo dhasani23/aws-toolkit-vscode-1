@@ -57,8 +57,8 @@ async function getMavenOrGradleJavaProjects(javaProjects: TransformationCandidat
 
     for (const project of javaProjects) {
         const projectPath = project.path
-        const buildSystem = await checkBuildSystem(projectPath!)
-        if (buildSystem === BuildSystem.Maven || buildSystem === BuildSystem.Gradle) {
+        const buildSystems = await checkBuildSystem(projectPath!)
+        if (buildSystems.includes(BuildSystem.Maven) || buildSystems.includes(BuildSystem.Gradle)) {
             mavenOrGradleJavaProjects.push(project)
         }
     }

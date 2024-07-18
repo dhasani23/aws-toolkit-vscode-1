@@ -15,6 +15,8 @@ export enum ButtonActions {
     VIEW_TRANSFORMATION_HUB = 'gumbyViewTransformationHub',
     CONFIRM_TRANSFORMATION_FORM = 'gumbyTransformFormConfirm',
     CANCEL_TRANSFORMATION_FORM = 'gumbyTransformFormCancel',
+    CONFIRM_BUILD_SYSTEM_FORM = 'gumbyTransformBuildSystemFormConfirm',
+    CANCEL_BUILD_SYSTEM_FORM = 'gumbyTransformBuildSystemFormCancel',
     CONFIRM_DEPENDENCY_FORM = 'gumbyTransformDependencyFormConfirm',
     CANCEL_DEPENDENCY_FORM = 'gumbyTransformDependencyFormCancel',
     CONFIRM_JAVA_HOME_FORM = 'gumbyJavaHomeFormConfirm',
