@@ -127,22 +127,14 @@ export class Messenger {
             options: [
                 {
                     value: BuildSystem.Maven,
-                    label: BuildSystem.Maven.toString(),
+                    label: BuildSystem.Maven,
                 },
                 {
                     value: BuildSystem.Gradle,
-                    label: BuildSystem.Gradle.toString(),
+                    label: BuildSystem.Gradle,
                 },
             ],
         })
-
-        // TO-DO: do we need the below?
-        this.dispatcher.sendAsyncEventProgress(
-            new AsyncEventProgressMessage(tabID, {
-                inProgress: false,
-                message: undefined,
-            })
-        )
 
         this.dispatcher.sendChatPrompt(
             new ChatPrompt(
@@ -152,7 +144,7 @@ export class Messenger {
                 },
                 'TransformBuildSystemForm',
                 tabID,
-                true
+                false
             )
         )
     }
@@ -187,11 +179,11 @@ export class Messenger {
             options: [
                 {
                     value: JDKVersion.JDK8,
-                    label: JDKVersion.JDK8.toString(),
+                    label: JDKVersion.JDK8,
                 },
                 {
                     value: JDKVersion.JDK11,
-                    label: JDKVersion.JDK11.toString(),
+                    label: JDKVersion.JDK11,
                 },
                 {
                     value: JDKVersion.UNSUPPORTED,
@@ -208,7 +200,7 @@ export class Messenger {
             options: [
                 {
                     value: JDKVersion.JDK17,
-                    label: JDKVersion.JDK17.toString(),
+                    label: JDKVersion.JDK17,
                 },
             ],
         })

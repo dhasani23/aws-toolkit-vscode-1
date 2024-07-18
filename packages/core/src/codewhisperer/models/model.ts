@@ -309,9 +309,9 @@ export enum JDKVersion {
 }
 
 export enum BuildSystem {
-    Maven = 'MAVEN',
-    Gradle = 'GRADLE',
-    Unknown = 'UNKNOWN',
+    Maven = 'Maven',
+    Gradle = 'Gradle',
+    Unknown = 'Unknown',
 }
 
 export class ZipManifest {
