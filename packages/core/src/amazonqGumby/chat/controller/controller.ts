@@ -325,9 +325,7 @@ export class GumbyController {
         const pathToProject: string = message.formSelectedValues['GumbyTransformProjectForm']
         const toJDKVersion: JDKVersion = message.formSelectedValues['GumbyTransformJdkToForm']
         const fromJDKVersion: JDKVersion = message.formSelectedValues['GumbyTransformJdkFromForm']
-
         const projectName = path.basename(pathToProject)
-        this.messenger.sendProjectSelectionMessage(projectName, fromJDKVersion, toJDKVersion, message.tabID)
 
         if (fromJDKVersion === JDKVersion.UNSUPPORTED) {
             this.messenger.sendUnrecoverableErrorResponse('unsupported-source-jdk-version', message.tabID)
@@ -338,24 +336,37 @@ export class GumbyController {
 
         // at this point, buildSystems is either [Maven], [Gradle], or [Maven, Gradle]
         const buildSystems = await checkBuildSystem(pathToProject)
-        let selectedProjectBuildSystem = undefined
-        if (buildSystems.length === 2) {
-            // TO-DO: revert to 1
-            selectedProjectBuildSystem = buildSystems[0]
+        let selectedBuildSystem = undefined
+        if (buildSystems.length === 1) {
+            selectedBuildSystem = buildSystems[0]
         } else {
             // multiple build systems present, so ask user to pick one
             await this.messenger.sendBuildSystemPrompt(message.tabID)
             return
         }
-        getLogger().info(`Selected project uses build system: ${selectedProjectBuildSystem}`)
-        transformByQState.setBuildSystem(selectedProjectBuildSystem)
+        getLogger().info(`Selected project uses build system: ${selectedBuildSystem}`)
+        transformByQState.setBuildSystem(selectedBuildSystem)
+        this.messenger.sendProjectSelectionMessage(
+            projectName,
+            fromJDKVersion,
+            toJDKVersion,
+            selectedBuildSystem,
+            message.tabID
+        )
         await this.validateBuildWithPromptOnError(message)
     }
 
     private async handleBuildSystemForm(message: any) {
-        const buildSystem: BuildSystem = message.formSelectedValues['GumbyTransformBuildSystemForm']
-        getLogger().info(`Selected project uses Maven and Gradle; user selected build system: ${buildSystem}`)
-        transformByQState.setBuildSystem(buildSystem)
+        const selectedBuildSystem: BuildSystem = message.formSelectedValues['GumbyTransformBuildSystemForm']
+        getLogger().info(`Selected project uses Maven and Gradle; user selected build system: ${selectedBuildSystem}`)
+        transformByQState.setBuildSystem(selectedBuildSystem)
+        this.messenger.sendProjectSelectionMessage(
+            transformByQState.getProjectName(),
+            transformByQState.getSourceJDKVersion()!,
+            transformByQState.getTargetJDKVersion(),
+            selectedBuildSystem,
+            message.tabID
+        )
         // this message obj is from the build system form, not the project selection form,
         // which is fine since validateBuildWithPromptOnError just needs the tab ID here
         await this.validateBuildWithPromptOnError(message)

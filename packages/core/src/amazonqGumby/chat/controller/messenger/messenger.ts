@@ -152,7 +152,7 @@ export class Messenger {
                 },
                 'TransformBuildSystemForm',
                 tabID,
-                false
+                true
             )
         )
     }
@@ -466,6 +466,7 @@ export class Messenger {
         projectName: string,
         fromJDKVersion: JDKVersion,
         toJDKVersion: JDKVersion,
+        buildSystem: BuildSystem,
         tabID: any
     ) {
         const message = `### Transformation details
@@ -475,6 +476,7 @@ export class Messenger {
 | **Project**             |   ${projectName}   |
 | **Source JDK version** |  ${fromJDKVersion}   |
 | **Target JDK version** |  ${toJDKVersion}   |
+| **Build system** |  ${buildSystem}   |
     `
 
         this.dispatcher.sendChatMessage(new ChatMessage({ message, messageType: 'prompt' }, tabID))
