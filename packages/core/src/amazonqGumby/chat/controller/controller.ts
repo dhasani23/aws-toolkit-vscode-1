@@ -334,6 +334,8 @@ export class GumbyController {
 
         await processTransformFormInput(pathToProject, fromJDKVersion, toJDKVersion)
 
+        this.messenger.sendProjectSelectionMessage(projectName, fromJDKVersion, toJDKVersion, message.tabID)
+
         // at this point, buildSystems is either [Maven], [Gradle], or [Maven, Gradle]
         const buildSystems = await checkBuildSystem(pathToProject)
         let selectedBuildSystem = undefined
@@ -346,13 +348,6 @@ export class GumbyController {
         }
         getLogger().info(`Selected project uses build system: ${selectedBuildSystem}`)
         transformByQState.setBuildSystem(selectedBuildSystem)
-        this.messenger.sendProjectSelectionMessage(
-            projectName,
-            fromJDKVersion,
-            toJDKVersion,
-            selectedBuildSystem,
-            message.tabID
-        )
         await this.validateBuildWithPromptOnError(message)
     }
 
@@ -360,13 +355,7 @@ export class GumbyController {
         const selectedBuildSystem: BuildSystem = message.formSelectedValues['GumbyTransformBuildSystemForm']
         getLogger().info(`Selected project uses Maven and Gradle; user selected build system: ${selectedBuildSystem}`)
         transformByQState.setBuildSystem(selectedBuildSystem)
-        this.messenger.sendProjectSelectionMessage(
-            transformByQState.getProjectName(),
-            transformByQState.getSourceJDKVersion()!,
-            transformByQState.getTargetJDKVersion(),
-            selectedBuildSystem,
-            message.tabID
-        )
+        this.messenger.sendBuildSystemSelectionMessage(selectedBuildSystem, message.tabID)
         // this message obj is from the build system form, not the project selection form,
         // which is fine since validateBuildWithPromptOnError just needs the tab ID here
         await this.validateBuildWithPromptOnError(message)
