@@ -310,7 +310,7 @@ export enum JDKVersion {
 
 export enum BuildSystem {
     Maven = 'Maven',
-    Gradle = 'Gradle',
+    Gradle = 'GRADLE', // needs to be all caps for backend; TO-DO: fix this by using equalsIgnoreCase in backend
     Unknown = 'Unknown',
 }
 

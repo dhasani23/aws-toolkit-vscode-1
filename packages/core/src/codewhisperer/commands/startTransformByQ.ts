@@ -108,6 +108,14 @@ async function setBuildSystemCommand() {
             transformByQState.getBuildSystem() === BuildSystem.Maven ? 'mvn' : 'gradle'
         )
     }
+    const gradlewPath = path.join(transformByQState.getProjectPath(), 'gradlew')
+    if (fs.existsSync(gradlewPath)) {
+        // TO-DO: maybe do this for mvnw too OR handle this in backend?
+        // replace Windows CRLF characters with LF characters so that our backend build can run
+        const wrapperData = fs.readFileSync(gradlewPath).toString()
+        const newWrapperData = wrapperData.replace(/\r\n/g, '\n')
+        fs.writeFileSync(gradlewPath, newWrapperData)
+    }
     getLogger().info(`CodeTransformation: set build system command to ${transformByQState.getBuildSystemCommand()}`)
 }
 
