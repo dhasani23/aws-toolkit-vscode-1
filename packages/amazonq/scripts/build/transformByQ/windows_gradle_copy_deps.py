@@ -536,7 +536,7 @@ class ScriptModifier:
     def add_maven_repos(self, content, local_path):
         new_maven_repo = f"""
         maven {{
-            url '{local_path}'
+            url "{local_path}"
             metadataSources {{
             mavenPom()
             artifact()
@@ -544,27 +544,38 @@ class ScriptModifier:
         }}
         """
 
-        # Find the repositories block manually and modify it
-        start_idx = content.find('repositories {')
-        if start_idx == -1:
-            # If no repositories block is found, return the content as is
-            return content
+        modified_content = ''
+        start_idx = 0
+        while True:
+            # Find the repositories block manually and modify it
+            start_idx_of_repo = content.find('repositories {', start_idx)
+            if start_idx_of_repo == -1:
+                # No more repositories blocks found
+                break
 
-        # Find the matching closing brace for the repositories block
-        open_braces = 1
-        end_idx = start_idx + len('repositories {')
-        while open_braces > 0 and end_idx < len(content):
-            if content[end_idx] == '{':
-                open_braces += 1
-            elif content[end_idx] == '}':
-                open_braces -= 1
-            end_idx += 1
+            # Find the matching closing brace for the repositories block
+            open_braces = 1
+            end_idx = start_idx_of_repo + len('repositories {')
+            while open_braces > 0 and end_idx < len(content):
+                if content[end_idx] == '{':
+                    open_braces += 1
+                elif content[end_idx] == '}':
+                    open_braces -= 1
+                end_idx += 1
 
-        # Insert the new maven repository before the closing brace
-        modified_repositories_block = content[start_idx:end_idx-1].strip() + f"\n{new_maven_repo.strip()}\n" + content[end_idx-1:end_idx]
+            # Insert the new maven repository before the closing brace
+            modified_repositories_block = content[start_idx_of_repo:end_idx-1].strip() + f"\n{new_maven_repo.strip()}\n" + content[end_idx-1:end_idx]
 
-        # Replace the old block with the modified one
-        return content[:start_idx] + modified_repositories_block + content[end_idx:]
+            # Append the modified block to the modified_content string
+            modified_content += content[start_idx:start_idx_of_repo] + modified_repositories_block
+
+            # Move the start_idx to the end of the current block
+            start_idx = end_idx
+
+        # Append any remaining content after the last repositoroies block
+        modified_content +=  content[start_idx:]
+
+        return modified_content
 
 def create_init_script(directory, init_name, content):
     qct_gradle_dir = os.path.join(directory, 'qct-gradle')
@@ -636,7 +647,7 @@ def run(directory_path):
         create_run_task(directory_path, 'custom-init.gradle', custom_init_script_content, 'cacheToMavenLocal')
         create_run_task(directory_path,'buildEnv-copy-init.gradle', run_build_env_copy_content, 'runAndParseBuildEnvironment')
         build_offline_dependencies = create_init_script(directory_path, 'use-downloaded-dependencies.gradle', use_offline_dependency)
-        #run_offline_build(build_offline_dependencies, directory_path)
+        # run_offline_build(build_offline_dependencies, directory_path)
     except Exception as e:
         print(f"An error occurred: {e}")
         sys.exit(1)
@@ -657,6 +668,7 @@ def run_properties(dir,action_1, distBase, distPath, zip_name):
         manager.set_custom_distribution(distributionBase, distributionPath)
 
         #do a gradlew to pull the artifacts to the specified destination
+        # TODO: do a gradlew subprocess here before modifying the content of the distribution to pull the zip
         run_gradlew(project_directory)
 
         #modify the initialization scripts under init.d
