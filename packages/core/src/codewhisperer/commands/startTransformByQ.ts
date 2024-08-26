@@ -165,7 +165,9 @@ export async function compileProject() {
         }
         await prepareProjectDependencies(dependenciesFolder, transformByQState.getProjectPath())
     } catch (err) {
-        getLogger().error('CodeTransformation: compileProject failed due to: ' + err)
+        getLogger().error(
+            `CodeTransformation: compileProject with ${transformByQState.getBuildSystem()} failed due to: ` + err
+        )
         throw err
     }
 }

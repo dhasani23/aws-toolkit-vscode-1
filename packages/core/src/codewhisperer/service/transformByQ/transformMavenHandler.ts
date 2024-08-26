@@ -157,12 +157,7 @@ export async function prepareProjectDependencies(dependenciesFolder: FolderInfo 
         // dependenciesFolder always exists for Maven
         await prepareMavenProjectDependencies(dependenciesFolder!, projectPath)
     } else if (transformByQState.getBuildSystem() === BuildSystem.Gradle) {
-        try {
-            await prepareGradleProjectDependencies()
-        } catch (err) {
-            getLogger().info('CodeTransformation: gradle_copy_deps.py failed, terminating the transformation job')
-            throw err
-        }
+        await prepareGradleProjectDependencies()
     }
 }
 

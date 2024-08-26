@@ -539,5 +539,5 @@ export class GumbyController {
  */
 function extractPath(text: string): string | undefined {
     const resolvedPath = path.resolve(text.trim())
-    return fs.existsSync(resolvedPath) && fs.lstatSync(resolvedPath).isDirectory() ? resolvedPath : undefined
+    return fs.existsSync(resolvedPath) ? resolvedPath : undefined
 }
