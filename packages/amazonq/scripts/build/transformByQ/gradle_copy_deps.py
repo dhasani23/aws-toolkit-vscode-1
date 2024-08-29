@@ -521,7 +521,7 @@ class ScriptModifier:
         self.project_dir = project_dir
 
     def modify_script(self, script_path):
-        local_path = "${rootProject.rootDir}/qct-gradle/configuration"
+        local_path = "${gradle.startParameter.currentDir}/qct-gradle/configuration"
         with open(script_path, 'r') as file:
             script_content = file.read()
 
@@ -637,7 +637,7 @@ def run(directory_path):
         except Exception as e:
             print(f"Error making gradlew executable, going to continue anyway: {e}")
     else:
-        # TO-DO: get text approved
+        # should never happen, since we generate the gradlew before running this script, and if that fails, we terminate
         print("gradlew executable not found. Please ensure you have a Gradle wrapper at the root of your project. Run 'gradle wrapper' to generate one.")
         sys.exit(1)
     try:
