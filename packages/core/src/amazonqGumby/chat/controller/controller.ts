@@ -51,6 +51,7 @@ import {
     telemetry,
     CodeTransformJavaTargetVersionsAllowed,
     CodeTransformJavaSourceVersionsAllowed,
+    CodeTransformBuildSystem,
 } from '../../../shared/telemetry/telemetry'
 import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
 import { CodeTransformTelemetryState } from '../../telemetry/codeTransformTelemetryState'
@@ -236,15 +237,8 @@ export class GumbyController {
     }
 
     private async validateProjectsWithReplyOnError(message: any): Promise<TransformationCandidateProject[]> {
-        let telemetryJavaVersion = JDKToTelemetryValue(JDKVersion.UNSUPPORTED) as CodeTransformJavaSourceVersionsAllowed
-        let errorCode = undefined
         try {
             const validProjects = await getValidCandidateProjects()
-            if (validProjects.length > 0) {
-                // validProjects[0].JDKVersion will be undefined if javap errors out or no .class files found, so call it UNSUPPORTED
-                const javaVersion = validProjects[0].JDKVersion ?? JDKVersion.UNSUPPORTED
-                telemetryJavaVersion = JDKToTelemetryValue(javaVersion) as CodeTransformJavaSourceVersionsAllowed
-            }
             return validProjects
         } catch (err: any) {
             if (err instanceof NoJavaProjectsFoundError) {
@@ -254,16 +248,6 @@ export class GumbyController {
             } else {
                 this.messenger.sendUnrecoverableErrorResponse('no-project-found', message.tabID)
             }
-            errorCode = err.code
-        } finally {
-            // New projectDetails metric should always be fired whether the project was valid or invalid
-            telemetry.codeTransform_projectDetails.emit({
-                passive: true,
-                codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-                codeTransformLocalJavaVersion: telemetryJavaVersion,
-                result: errorCode ? MetadataResult.Fail : MetadataResult.Pass,
-                reason: errorCode,
-            })
         }
         return []
     }
@@ -370,11 +354,10 @@ export class GumbyController {
         }
 
         const projectPath = transformByQState.getProjectPath()
-        // TO-DO: add codeTransformBuildSystem field to this metric
-        telemetry.codeTransform_jobStartedCompleteFromPopupDialog.emit({
+        telemetry.codeTransform_submitSelection.emit({
             codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
             codeTransformJavaSourceVersionsAllowed: JDKToTelemetryValue(
-                transformByQState.getSourceJDKVersion()!
+                transformByQState.getSourceJDKVersion()
             ) as CodeTransformJavaSourceVersionsAllowed,
             codeTransformJavaTargetVersionsAllowed: JDKToTelemetryValue(
                 transformByQState.getTargetJDKVersion()
@@ -415,6 +398,7 @@ export class GumbyController {
     }
 
     private async validateBuildWithPromptOnError(message: any): Promise<void> {
+        let errorCode = undefined
         try {
             await validateCanCompileProject()
         } catch (err: any) {
@@ -425,7 +409,17 @@ export class GumbyController {
                 this.messenger.sendUpdatePlaceholder(message.tabID, 'Enter the path to your Java installation.')
                 return
             }
+            errorCode = (err as Error).message
             throw err
+        } finally {
+            telemetry.codeTransform_validateProject.emit({
+                passive: true,
+                codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
+                codeTransformBuildSystem: transformByQState.getBuildSystem()! as CodeTransformBuildSystem,
+                codeTransformPreValidationError: errorCode ? 'ProjectJDKDiffersFromBuildSystemJDK' : undefined,
+                result: errorCode ? MetadataResult.Fail : MetadataResult.Pass,
+                reason: errorCode,
+            })
         }
 
         await this.prepareProjectForSubmission(message)

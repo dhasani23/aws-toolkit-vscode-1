@@ -5,14 +5,11 @@
 import * as vscode from 'vscode'
 import * as os from 'os'
 import path from 'path'
-import { FolderInfo, transformByQState } from '../../models/model'
+import { FolderInfo } from '../../models/model'
 import { fsCommon } from '../../../srcShared/fs'
 import { createPomCopy, replacePomVersion } from './transformFileHandler'
 import { IManifestFile } from '../../../amazonqFeatureDev/models'
 import { getLogger } from '../../../shared/logger'
-import { telemetry } from '../../../shared/telemetry'
-import { CodeTransformTelemetryState } from '../../../amazonqGumby/telemetry/codeTransformTelemetryState'
-import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
 
 /**
  * @description This class helps encapsulate the "human in the loop" behavior of Amazon Q transform. Users
@@ -105,13 +102,6 @@ export class HumanInTheLoopManager {
         const errorMessage = 'Error cleaning up artifacts'
         const artifactCleanUpErrorMessage = (e: any) => `CodeTransformation: ${errorMessage} = ${e?.message}`
         getLogger().error(artifactCleanUpErrorMessage(e))
-        telemetry.codeTransform_logGeneralError.emit({
-            codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-            codeTransformJobId: transformByQState.getJobId(),
-            result: MetadataResult.Fail,
-            reason: errorMessage,
-            codeTransformApiErrorMessage: errorMessage,
-        })
     }
 
     static #instance: HumanInTheLoopManager | undefined

@@ -7,7 +7,11 @@ import { BuildSystem, FolderInfo, transformByQState } from '../../models/model'
 import { getLogger } from '../../../shared/logger'
 import * as CodeWhispererConstants from '../../models/constants'
 import { spawnSync } from 'child_process' // Consider using ChildProcess once we finalize all spawnSync calls
-import { CodeTransformMavenBuildCommand, telemetry } from '../../../shared/telemetry/telemetry'
+import {
+    CodeTransformBuildCommand,
+    CodeTransformMavenBuildCommand,
+    telemetry,
+} from '../../../shared/telemetry/telemetry'
 import { CodeTransformTelemetryState } from '../../../amazonqGumby/telemetry/codeTransformTelemetryState'
 import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
 import { ToolkitError } from '../../../shared/errors'
@@ -73,9 +77,9 @@ function installMavenProjectDependencies(dependenciesFolder: FolderInfo, moduleP
         } else if (mavenBuildCommand === '.\\mvnw.cmd') {
             mavenBuildCommand = 'mvnw.cmd'
         }
-        telemetry.codeTransform_mvnBuildFailed.emit({
+        telemetry.codeTransform_localBuildProject.emit({
             codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-            codeTransformMavenBuildCommand: mavenBuildCommand as CodeTransformMavenBuildCommand,
+            codeTransformBuildCommand: mavenBuildCommand as CodeTransformMavenBuildCommand,
             result: MetadataResult.Fail,
             reason: errorReason,
         })
@@ -139,9 +143,9 @@ function copyMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath
         } else if (mavenBuildCommand === '.\\mvnw.cmd') {
             mavenBuildCommand = 'mvnw.cmd'
         }
-        telemetry.codeTransform_mvnBuildFailed.emit({
+        telemetry.codeTransform_localBuildProject.emit({
             codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-            codeTransformMavenBuildCommand: mavenBuildCommand as CodeTransformMavenBuildCommand,
+            codeTransformBuildCommand: mavenBuildCommand as CodeTransformMavenBuildCommand,
             result: MetadataResult.Fail,
             reason: errorReason,
         })
@@ -202,6 +206,9 @@ async function getPythonExecutable() {
 }
 
 export async function prepareGradleProjectDependencies() {
+    let errorLog = ''
+    let errorReason = undefined
+    let gradleBuildCommand = transformByQState.getBuildSystemCommand()
     try {
         transformByQState.appendToLocalBuildErrorLog(`Running gradle_copy_deps.py to copy Gradle project dependencies`)
         let scriptPath = globals.context.asAbsolutePath('scripts/build/transformByQ/gradle_copy_deps.py')
@@ -234,7 +241,8 @@ export async function prepareGradleProjectDependencies() {
                 maxBuffer: CodeWhispererConstants.maxBufferSize,
             })
             if (spawnResult.status !== 0) {
-                const errorMessage = `Failed to create Gradle wrapper:\n\n${spawnResult.stderr}\n\n${spawnResult.stdout}\n\nEnsure a Gradle wrapper is present in your project before retrying. You should ensure you have Gradle installed by running gradle -v, then run gradle wrapper to generate the wrapper.`
+                // TO-DO: get text approved
+                const errorMessage = `Failed to create Gradle wrapper:\n\n${spawnResult.stderr}\n\n${spawnResult.stdout}\n\nEnsure a Gradle wrapper is present in your project before retrying. Check that you have Gradle installed by running "gradle -v", then run "gradle wrapper" to generate the wrapper.`
                 transformByQState.appendToLocalBuildErrorLog(errorMessage)
                 getLogger().error(errorMessage)
                 throw new Error(errorMessage)
@@ -253,12 +261,10 @@ export async function prepareGradleProjectDependencies() {
 
         const argString = args.join(' ')
         if (spawnResult.status !== 0) {
-            let errorLog = ''
             errorLog += spawnResult.error ? JSON.stringify(spawnResult.error) : ''
             errorLog += `${spawnResult.stderr}\n${spawnResult.stdout}`
             transformByQState.appendToLocalBuildErrorLog(`gradle_copy_deps.py failed: \n ${errorLog}`)
             getLogger().error(`CodeTransformation: Error in running gradle_copy_deps.py = ${errorLog}`)
-            let errorReason = ''
             if (spawnResult.stdout) {
                 errorReason = `Python ${argString}: ExecutionError`
                 // in case buffer overflows because this script may generate a lot of output
@@ -272,20 +278,12 @@ export async function prepareGradleProjectDependencies() {
                 const errorCode = (spawnResult.error as any).code ?? 'UNKNOWN'
                 errorReason += `-${errorCode}`
             }
-            let gradleBuildCommand = transformByQState.getBuildSystemCommand()
             // slashes not allowed in telemetry
             if (gradleBuildCommand === './gradlew') {
                 gradleBuildCommand = 'gradlew'
             } else if (gradleBuildCommand === '.\\gradlew.bat') {
                 gradleBuildCommand = 'gradlew.bat'
             }
-            // TO-DO: move this in the finally block, use the new `codeTransform_build` metric, and use status code to decide result
-            telemetry.codeTransform_mvnBuildFailed.emit({
-                codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-                codeTransformMavenBuildCommand: gradleBuildCommand as CodeTransformMavenBuildCommand,
-                result: MetadataResult.Fail,
-                reason: errorReason,
-            })
             throw new Error(`gradle_copy_deps.py failed`)
         } else {
             transformByQState.appendToLocalBuildErrorLog(`gradle_copy_deps.py succeeded: ${spawnResult.stdout}`)
@@ -297,6 +295,13 @@ export async function prepareGradleProjectDependencies() {
         const doc = await vscode.workspace.openTextDocument(logFilePath)
         await vscode.window.showTextDocument(doc)
         throw err
+    } finally {
+        telemetry.codeTransform_localBuildProject.emit({
+            codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
+            codeTransformBuildCommand: gradleBuildCommand as CodeTransformBuildCommand,
+            result: errorLog ? MetadataResult.Fail : MetadataResult.Pass,
+            reason: errorReason,
+        })
     }
     throwIfCancelled()
     void vscode.window.showInformationMessage(CodeWhispererConstants.buildSucceededNotification)

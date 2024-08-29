@@ -110,7 +110,6 @@ async function setBuildSystemCommand() {
     }
     const gradlewPath = path.join(transformByQState.getProjectPath(), 'gradlew')
     if (fs.existsSync(gradlewPath)) {
-        // TO-DO: maybe do this for mvnw too OR handle this in backend?
         // replace Windows CRLF characters with LF characters so that our backend build can run
         const wrapperData = fs.readFileSync(gradlewPath).toString()
         const newWrapperData = wrapperData.replace(/\r\n/g, '\n')
@@ -131,15 +130,6 @@ async function validateJavaHome(): Promise<boolean> {
         }
     }
     if (javaVersionUsedByBuildSystem !== transformByQState.getSourceJDKVersion()) {
-        // TO-DO: make codeTransformPreValidationError more generic
-        // Done
-        telemetry.codeTransform_isDoubleClickedToTriggerInvalidProject.emit({
-            codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-            codeTransformPreValidationError: 'ProjectJDKDiffersFromMavenJDK',
-            result: MetadataResult.Fail,
-            reason: `${transformByQState.getSourceJDKVersion()} (project) - ${javaVersionUsedByBuildSystem} (${transformByQState.getBuildSystem()})`,
-        })
-
         // means either javaVersionUsedByBuildSystem is undefined or it does not match the project JDK
         return false
     }
@@ -680,15 +670,14 @@ export async function postTransformationJob() {
     const resultStatusMessage = transformByQState.getStatus()
 
     const versionInfo = await getVersionData()
-    const mavenVersionInfoMessage = `${versionInfo[0]} (${transformByQState.getBuildSystemCommand()})`
+    const buildSystemVersionInfoMessage = `${versionInfo[0]} (${transformByQState.getBuildSystemCommand()})`
     const javaVersionInfoMessage = `${versionInfo[1]} (${transformByQState.getBuildSystemCommand()})`
 
-    // TO-DO: replace codeTransformLocalMavenVersion with codeTransformLocalBuildSystemVersion
     telemetry.codeTransform_totalRunTime.emit({
         codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
         codeTransformResultStatusMessage: resultStatusMessage,
         codeTransformRunTimeLatency: durationInMs,
-        codeTransformLocalMavenVersion: mavenVersionInfoMessage,
+        buildSystemVersion: buildSystemVersionInfoMessage,
         codeTransformLocalJavaVersion: javaVersionInfoMessage,
         result: resultStatusMessage === TransformByQStatus.Succeeded ? MetadataResult.Pass : MetadataResult.Fail,
         reason: resultStatusMessage,

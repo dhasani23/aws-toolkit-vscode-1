@@ -123,6 +123,8 @@ describe('codewhispererTracker', function () {
                 codewhispererLanguage: 'java',
                 credentialStartUrl: testStartUrl,
                 codewhispererUserGroup: 'CrossFile',
+                codewhispererCharactersAccepted: suggestion.originalString.length,
+                codewhispererCharactersModified: 0,
             })
         })
     })

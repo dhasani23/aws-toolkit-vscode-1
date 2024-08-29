@@ -355,23 +355,16 @@ export class ProposedTransformationExplorer {
                     TransformByQReviewStatus.NotStarted
                 )
                 getLogger().error(`CodeTransformation: ExportResultArchive error = ${downloadErrorMessage}`)
-                telemetry.codeTransform_logApiError.emit({
-                    codeTransformApiNames: 'ExportResultArchive',
-                    codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-                    codeTransformJobId: transformByQState.getJobId(),
-                    codeTransformApiErrorMessage: downloadErrorMessage,
-                    codeTransformRequestId: e.requestId ?? '',
-                    result: MetadataResult.Fail,
-                    reason: 'ExportResultArchiveFailed',
-                })
                 throw new Error('Error downloading diff')
             } finally {
-                // This metric is emitted when user clicks Download Proposed Changes button
-                // TO-DO: this can just be replaced with codeTransform_logApiResult, codeTransform_vcsViewerClicked is being re-purposed
-                telemetry.codeTransform_vcsViewerClicked.emit({
+                // emitted when user clicks Download Proposed Changes button
+                telemetry.codeTransform_viewArtifact.emit({
+                    codeTransformArtifactType: 'ClientInstructions',
+                    codeTransformStatus: transformByQState.getPolledJobStatus(),
                     codeTransformVCSViewerSrcComponents: 'toastNotification',
                     codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
                     codeTransformJobId: transformByQState.getJobId(),
+                    userChoice: 'downloadArtifact',
                     result: downloadErrorMessage ? MetadataResult.Fail : MetadataResult.Pass,
                     reason: downloadErrorMessage,
                 })
@@ -429,7 +422,8 @@ export class ProposedTransformationExplorer {
                     `${CodeWhispererConstants.errorDeserializingDiffNotification} ${deserializeErrorMessage}`
                 )
             } finally {
-                telemetry.codeTransform_jobArtifactDownloadAndDeserializeTime.emit({
+                telemetry.codeTransform_downloadArtifact.emit({
+                    codeTransformArtifactType: 'ClientInstructions',
                     codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
                     codeTransformJobId: transformByQState.getJobId(),
                     codeTransformRunTimeLatency: calculateTotalLatency(deserializeArchiveStartTime),
@@ -450,30 +444,26 @@ export class ProposedTransformationExplorer {
                 tabID: ChatSessionManager.Instance.getSession().tabID,
             })
             await reset()
-            // TO-DO: replace with codeTransform_vcsViewerClicked which is being re-purposed to fit this need
-            // and either: add the codeTransformMetadata field to store if diff was Accepted or Rejected,
-            // or, simply use the existing result field to store that info
-            telemetry.codeTransform_vcsViewerSubmitted.emit({
+            telemetry.codeTransform_viewArtifact.emit({
+                codeTransformArtifactType: 'ClientInstructions',
+                codeTransformStatus: transformByQState.getPolledJobStatus(),
+                codeTransformVCSViewerSrcComponents: 'toastNotification',
                 codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
                 codeTransformJobId: transformByQState.getJobId(),
-                codeTransformStatus: transformByQState.getStatus(),
-                result: MetadataResult.Pass,
+                userChoice: 'acceptChanges',
             })
         })
 
         vscode.commands.registerCommand('aws.amazonq.transformationHub.reviewChanges.rejectChanges', async () => {
             diffModel.rejectChanges()
             await reset()
-            telemetry.ui_click.emit({ elementId: 'transformationHub_rejectChanges' })
-            // TO-DO: replace with codeTransform_vcsViewerClicked, which is being re-purposed to fit this need
-            // OR: this (and vcsViewerSubmitted, above) seems like a duplicate of telemetry.ui_click above?
-            telemetry.codeTransform_vcsViewerCanceled.emit({
-                // eslint-disable-next-line id-length
-                codeTransformPatchViewerCancelSrcComponents: 'cancelButton',
+            telemetry.codeTransform_viewArtifact.emit({
+                codeTransformArtifactType: 'ClientInstructions',
+                codeTransformStatus: transformByQState.getPolledJobStatus(),
+                codeTransformVCSViewerSrcComponents: 'toastNotification',
                 codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
                 codeTransformJobId: transformByQState.getJobId(),
-                codeTransformStatus: transformByQState.getStatus(),
-                result: MetadataResult.Pass,
+                userChoice: 'rejectChanges',
             })
         })
     }

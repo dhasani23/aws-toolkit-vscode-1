@@ -164,11 +164,9 @@ export async function validateOpenProjects(
     if (mavenOrGradleJavaProjects.length === 0) {
         if (!onProjectFirstOpen) {
             void vscode.window.showErrorMessage(CodeWhispererConstants.noPomXmlOrBuildGradleFoundNotification)
-            // TO-DO: modify codeTransformPreValidationError to be more generic
-            // Done
-            telemetry.codeTransform_isDoubleClickedToTriggerInvalidProject.emit({
+            telemetry.codeTransform_validateProject.emit({
                 codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-                codeTransformPreValidationError: 'NonMavenProject',
+                codeTransformPreValidationError: 'UnsupportedBuildSystem',
                 result: MetadataResult.Fail,
                 reason: 'NoMavenOrGradleBuildFileFound',
             })

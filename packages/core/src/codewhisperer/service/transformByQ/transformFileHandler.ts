@@ -28,7 +28,6 @@ export async function writeLogs() {
     return logFilePath
 }
 
-// TO-DO: add unit tests
 export async function checkBuildSystem(projectPath: string) {
     const buildSystems = []
     const mavenBuildFilePath = path.join(projectPath, 'pom.xml')

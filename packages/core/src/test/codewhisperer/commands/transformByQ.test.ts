@@ -36,7 +36,10 @@ import {
     getOpenProjects,
 } from '../../../codewhisperer/service/transformByQ/transformProjectValidationHandler'
 import { TransformationCandidateProject, ZipManifest } from '../../../codewhisperer/models/model'
-import { shouldIncludeDirectoryInZip } from '../../../codewhisperer/service/transformByQ/transformFileHandler'
+import {
+    checkBuildSystem,
+    shouldIncludeDirectoryInZip,
+} from '../../../codewhisperer/service/transformByQ/transformFileHandler'
 
 describe('transformByQ', function () {
     let tempDir: string
@@ -148,6 +151,26 @@ describe('transformByQ', function () {
         await assert.rejects(async () => {
             await getOpenProjects()
         }, NoOpenProjectsError)
+    })
+
+    it('WHEN checkBuildSystem called on Maven project THEN pom.xml found', async function () {
+        const folder = await createTestWorkspaceFolder()
+        const dummyPath = path.join(folder.uri.fsPath, 'pom.xml')
+        await toFile('', dummyPath)
+        const buildSystem = await checkBuildSystem(folder.uri.fsPath)
+        const expected = [BuildSystem.Maven]
+        assert.deepStrictEqual(buildSystem, expected)
+    })
+
+    it('WHEN checkBuildSystem called on Maven and Gradle project THEN pom.xml and build.gradle found', async function () {
+        const folder = await createTestWorkspaceFolder()
+        const dummyMavenPath = path.join(folder.uri.fsPath, 'pom.xml')
+        await toFile('', dummyMavenPath)
+        const dummyGradlePath = path.join(folder.uri.fsPath, 'build.gradle.kts')
+        await toFile('', dummyGradlePath)
+        const buildSystems = await checkBuildSystem(folder.uri.fsPath)
+        const expected = [BuildSystem.Maven, BuildSystem.Gradle]
+        assert.deepStrictEqual(buildSystems, expected)
     })
 
     it('WHEN stop job called with invalid jobId THEN stop API not called', async function () {
