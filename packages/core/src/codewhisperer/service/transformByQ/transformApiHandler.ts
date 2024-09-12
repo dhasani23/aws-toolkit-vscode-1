@@ -593,7 +593,6 @@ export async function getTransformationSteps(jobId: string, handleThrottleFlag: 
 
 export async function pollTransformationJob(jobId: string, validStates: string[]) {
     let status: string = ''
-    let timer: number = 0
     while (true) {
         throwIfCancelled()
         try {
@@ -645,11 +644,15 @@ export async function pollTransformationJob(jobId: string, validStates: string[]
                 transformByQState.setJobFailureMetadata(` (request ID: ${response.$response.requestId})`)
                 throw new JobStoppedError(response.$response.requestId)
             }
-            await sleep(CodeWhispererConstants.transformationJobPollingIntervalSeconds * 1000)
-            timer += CodeWhispererConstants.transformationJobPollingIntervalSeconds
-            if (timer > CodeWhispererConstants.transformationJobTimeoutSeconds) {
-                throw new Error('Job timed out')
+            // handle case where 3 consecutive builds time out
+            // TODO: should we always check the LAST progressUpdate?
+            const planSteps = transformByQState.getPlanSteps()
+            if (planSteps !== undefined && planSteps.at(-1)?.status === 'build timed out 3 times in a row') {
+                transformByQState.setJobFailureErrorChatMessage('I stopped your job since the build timed out')
+                transformByQState.setJobFailureErrorNotification('Job stopped since build timed out')
+                throw new JobStoppedError(response.$response.requestId)
             }
+            await sleep(CodeWhispererConstants.transformationJobPollingIntervalSeconds * 1000)
         } catch (e: any) {
             let errorMessage = (e as Error).message
             errorMessage += ` -- ${transformByQState.getJobFailureMetadata()}`

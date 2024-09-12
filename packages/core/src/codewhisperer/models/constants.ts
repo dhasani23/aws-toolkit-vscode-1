@@ -334,8 +334,6 @@ export const maxBufferSize = 1024 * 1024 * 8 // this is 8MB; the default max buf
 
 export const transformationJobPollingIntervalSeconds = 5
 
-export const transformationJobTimeoutSeconds = 3 * 60 * 60 // 3 hours, to match backend
-
 export const defaultLanguage = 'Java'
 
 export const contentChecksumType = 'SHA_256'
