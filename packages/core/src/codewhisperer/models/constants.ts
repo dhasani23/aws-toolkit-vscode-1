@@ -376,6 +376,12 @@ export const validStatesForCheckingDownloadUrl = [
     'REJECTED',
 ]
 
+export const buildTimedOutStatus = 'BUILD_TIMED_OUT'
+
+export const buildTimedOutNotification = 'The transformation was stopped since the build timed out multiple times.'
+
+export const buildTimedOutChatMessage = 'I stopped your transformation since the build timed out multiple times.'
+
 export const amazonQFeedbackKey = 'Amazon Q'
 
 export const amazonQFeedbackText = 'Submit feedback'

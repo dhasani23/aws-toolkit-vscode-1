@@ -645,11 +645,17 @@ export async function pollTransformationJob(jobId: string, validStates: string[]
                 throw new JobStoppedError(response.$response.requestId)
             }
             // handle case where 3 consecutive builds time out
-            // TODO: should we always check the LAST progressUpdate?
             const planSteps = transformByQState.getPlanSteps()
-            if (planSteps !== undefined && planSteps.at(-1)?.status === 'build timed out 3 times in a row') {
-                transformByQState.setJobFailureErrorChatMessage('I stopped your job since the build timed out')
-                transformByQState.setJobFailureErrorNotification('Job stopped since build timed out')
+            // if any step has any progress update with a status of BUILD_TIMED_OUT, stop the job
+            if (
+                planSteps !== undefined &&
+                planSteps.some((step) =>
+                    step.progressUpdates?.some((update) => update.status === CodeWhispererConstants.buildTimedOutStatus)
+                )
+            ) {
+                await stopJob(transformByQState.getJobId())
+                transformByQState.setJobFailureErrorNotification(CodeWhispererConstants.buildTimedOutNotification)
+                transformByQState.setJobFailureErrorChatMessage(CodeWhispererConstants.buildTimedOutChatMessage)
                 throw new JobStoppedError(response.$response.requestId)
             }
             await sleep(CodeWhispererConstants.transformationJobPollingIntervalSeconds * 1000)
