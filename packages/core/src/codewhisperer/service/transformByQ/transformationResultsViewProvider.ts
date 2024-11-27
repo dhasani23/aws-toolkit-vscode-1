@@ -397,13 +397,6 @@ export class ProposedTransformationExplorer {
                 transformByQState.setResultArchiveFilePath(pathContainingArchive)
                 await vscode.commands.executeCommand('setContext', 'gumby.isSummaryAvailable', true)
 
-                // This metric is only emitted when placed before showInformationMessage
-                telemetry.codeTransform_vcsDiffViewerVisible.emit({
-                    codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-                    codeTransformJobId: transformByQState.getJobId(),
-                    result: MetadataResult.Pass,
-                })
-
                 // Do not await this so that the summary reveals without user needing to close this notification
                 void vscode.window.showInformationMessage(CodeWhispererConstants.viewProposedChangesNotification)
                 transformByQState.getChatControllers()?.transformationFinished.fire({

@@ -7,11 +7,7 @@ import { BuildSystem, FolderInfo, transformByQState } from '../../models/model'
 import { getLogger } from '../../../shared/logger'
 import * as CodeWhispererConstants from '../../models/constants'
 import { spawnSync } from 'child_process' // Consider using ChildProcess once we finalize all spawnSync calls
-import {
-    CodeTransformBuildCommand,
-    CodeTransformMavenBuildCommand,
-    telemetry,
-} from '../../../shared/telemetry/telemetry'
+import { CodeTransformBuildCommand, telemetry } from '../../../shared/telemetry/telemetry'
 import { CodeTransformTelemetryState } from '../../../amazonqGumby/telemetry/codeTransformTelemetryState'
 import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
 import { ToolkitError } from '../../../shared/errors'
@@ -72,6 +68,7 @@ function installMavenProjectDependencies(dependenciesFolder: FolderInfo, moduleP
             const errorCode = (spawnResult.error as any).code ?? 'UNKNOWN'
             errorReason += `-${errorCode}`
         }
+        console.log(errorReason)
         let mavenBuildCommand = transformByQState.getBuildSystemCommand()
         // slashes not allowed in telemetry
         if (mavenBuildCommand === './mvnw') {
@@ -79,12 +76,6 @@ function installMavenProjectDependencies(dependenciesFolder: FolderInfo, moduleP
         } else if (mavenBuildCommand === '.\\mvnw.cmd') {
             mavenBuildCommand = 'mvnw.cmd'
         }
-        telemetry.codeTransform_localBuildProject.emit({
-            codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-            codeTransformBuildCommand: mavenBuildCommand as CodeTransformMavenBuildCommand,
-            result: MetadataResult.Fail,
-            reason: errorReason,
-        })
         throw new ToolkitError(`Maven ${argString} error`, { code: 'MavenExecutionError' })
     } else {
         transformByQState.appendToLocalBuildErrorLog(`${baseCommand} ${argString} succeeded`)
@@ -138,6 +129,7 @@ function copyMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath
             const errorCode = (spawnResult.error as any).code ?? 'UNKNOWN'
             errorReason += `-${errorCode}`
         }
+        console.log(errorReason)
         let mavenBuildCommand = transformByQState.getBuildSystemCommand()
         // slashes not allowed in telemetry
         if (mavenBuildCommand === './mvnw') {
@@ -145,12 +137,6 @@ function copyMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath
         } else if (mavenBuildCommand === '.\\mvnw.cmd') {
             mavenBuildCommand = 'mvnw.cmd'
         }
-        telemetry.codeTransform_localBuildProject.emit({
-            codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-            codeTransformBuildCommand: mavenBuildCommand as CodeTransformMavenBuildCommand,
-            result: MetadataResult.Fail,
-            reason: errorReason,
-        })
         throw new Error('Maven copy-deps error')
     } else {
         transformByQState.appendToLocalBuildErrorLog(`${baseCommand} copy-dependencies succeeded`)
