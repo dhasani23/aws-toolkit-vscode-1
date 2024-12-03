@@ -698,8 +698,17 @@ export async function postTransformationJob() {
             })
     }
 
+    console.log('zip path =', transformByQState.getPayloadFilePath())
     if (fs.existsSync(transformByQState.getPayloadFilePath())) {
-        fs.rmSync(transformByQState.getPayloadFilePath(), { recursive: true, force: true }) // delete ZIP if it exists
+        // fs.rmSync(transformByQState.getPayloadFilePath(), { recursive: true, force: true }) // delete ZIP if it exists
+    }
+    try {
+        const qctGradlePath = path.join(transformByQState.getProjectPath(), 'qct-gradle')
+        if (fs.existsSync(qctGradlePath)) {
+            fs.rmSync(qctGradlePath, { recursive: true })
+        }
+    } catch {
+        // do nothing. sometimes deleting the qct-gradle folder fails due to .lock files, so just move on.
     }
 }
 

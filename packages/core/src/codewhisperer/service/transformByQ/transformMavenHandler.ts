@@ -15,8 +15,6 @@ import { writeLogs } from './transformFileHandler'
 import { throwIfCancelled } from './transformApiHandler'
 import { globals } from '../../../shared'
 import * as os from 'os'
-import * as fs from 'fs'
-import path from 'path'
 
 // run 'install' with either 'mvnw.cmd', './mvnw', or 'mvn' (if wrapper exists, we use that, otherwise we use regular 'mvn')
 function installMavenProjectDependencies(dependenciesFolder: FolderInfo, modulePath: string) {
@@ -290,14 +288,6 @@ export async function prepareGradleProjectDependencies() {
             result: errorLog ? MetadataResult.Fail : MetadataResult.Pass,
             reason: errorReason,
         })
-        try {
-            const qctGradlePath = path.join(transformByQState.getProjectPath(), 'qct-gradle')
-            if (fs.existsSync(qctGradlePath)) {
-                fs.rmSync(qctGradlePath, { recursive: true })
-            }
-        } catch {
-            // do nothing. sometimes deleting the qct-gradle folder fails due to .lock files, so just move on.
-        }
     }
     throwIfCancelled()
     void vscode.window.showInformationMessage(CodeWhispererConstants.buildSucceededNotification)
