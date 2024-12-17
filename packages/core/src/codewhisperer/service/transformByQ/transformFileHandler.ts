@@ -22,10 +22,14 @@ export function createMavenDependenciesFolderInfo(): FolderInfo {
     }
 }
 
-export async function writeLogs() {
-    const logFilePath = path.join(os.tmpdir(), 'build-logs.txt')
-    writeFileSync(logFilePath, transformByQState.getLocalBuildErrorLog())
-    return logFilePath
+export async function writeLogs(logFilePath?: string, buildLogs?: string) {
+    const logFilePathToUse = logFilePath ? logFilePath : path.join(os.tmpdir(), 'build-logs.txt')
+    if (buildLogs) {
+        writeFileSync(logFilePathToUse, buildLogs)
+        return logFilePathToUse
+    }
+    writeFileSync(logFilePathToUse, transformByQState.getLocalBuildErrorLog())
+    return logFilePathToUse
 }
 
 export async function checkBuildSystem(projectPath: string) {

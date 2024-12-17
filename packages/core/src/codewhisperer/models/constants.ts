@@ -374,7 +374,7 @@ export const validStatesForPlanGenerated = [
 
 export const failureStates = ['FAILED', 'STOPPING', 'STOPPED', 'REJECTED']
 
-export const pausedStates = ['PAUSED']
+export const pausedStates = ['PAUSED', 'AWATING_CLIENT_ACTION']
 
 // if status is COMPLETED or PARTIALLY_COMPLETED we can download artifacts
 export const validStatesForCheckingDownloadUrl = [
@@ -595,16 +595,24 @@ export const gradleBuildErrorChatMessage = "Sorry, I couldn't build your Gradle 
 export const enterJavaHomeChatMessage = 'Enter the path to JDK '
 
 export const projectPromptChatMessage =
-    'I can upgrade your JAVA_VERSION_HERE. To start the transformation, I need some information from you. Choose the project you want to upgrade and the target code version to upgrade to. Then, choose Transform.'
+    'I can upgrade your JAVA_VERSION_HERE. To start the transformation, I need some information from you. First, choose the project you want to upgrade and the target code version to upgrade to.\nI will perform the upgrade in multiple steps and I will perform a Java 17 build on your host at the end of each step and obtain feedback.\nWould you prefer to review changes at each iteration or at the end of the transformation?\nFinally, choose Confirm.'
 
 export const windowsJavaHomeHelpChatMessage =
     'To find the JDK path, run the following commands in a new IDE terminal: `cd "C:/Program Files/Java"` and then `dir`. If you see your JDK version, run `cd <version>` and then `cd` to show the path.'
 
-export const nonWindowsJava8HomeHelpChatMessage =
+export const macJava8HomeHelpChatMessage =
     'To find the JDK path, run the following command in a new IDE terminal:  `/usr/libexec/java_home -v 1.8`'
 
-export const nonWindowsJava11HomeHelpChatMessage =
+export const macJava11HomeHelpChatMessage =
     'To find the JDK path, run the following command in a new IDE terminal:  `/usr/libexec/java_home -v 11`'
+
+export const macJava17HomeHelpChatMessage =
+    'To find the JDK path, run the following command in a new IDE terminal:  `/usr/libexec/java_home -v 17`'
+
+export const linuxJavaHomeHelpChatMessage =
+    'To find the JDK path, run the following command in a new terminal: `update-java-alternatives --list`'
+
+export const clientSideBuildEnvironmentTitle = 'Choose build environment for intermediate changes'
 
 export const projectSizeTooLargeChatMessage =
     'Sorry, your project size exceeds the Amazon Q Code Transformation upload limit of 2GB. For more information, see the [Code Transformation documentation](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/troubleshooting-code-transformation.html#project-size-limit).'

@@ -1986,7 +1986,7 @@
         },
         "TransformationProgressUpdateStatus": {
             "type": "string",
-            "enum": ["IN_PROGRESS", "COMPLETED", "FAILED", "PAUSED"]
+            "enum": ["IN_PROGRESS", "COMPLETED", "FAILED", "PAUSED", "AWAITING_CLIENT_ACTION"]
         },
         "TransformationProjectState": {
             "type": "structure",

@@ -76,12 +76,14 @@ import { makeTemporaryToolkitFolder } from '../../shared/filesystemUtilities'
 export async function processTransformFormInput(
     pathToProject: string,
     fromJDKVersion: JDKVersion,
-    toJDKVersion: JDKVersion
+    toJDKVersion: JDKVersion,
+    clientSideBuildSelection: string
 ) {
     transformByQState.setProjectName(path.basename(pathToProject))
     transformByQState.setProjectPath(pathToProject)
     transformByQState.setSourceJDKVersion(fromJDKVersion)
     transformByQState.setTargetJDKVersion(toJDKVersion)
+    transformByQState.setClientSideBuildSelection(clientSideBuildSelection)
 }
 
 // used to set the command we will use with the '-v' flag to get the JDK version on user's JAVA_HOME,

@@ -33,22 +33,24 @@ export enum GumbyCommands {
 }
 
 export default class MessengerUtils {
-    static createJavaHomePrompt = (): string => {
-        let javaHomePrompt = `${
-            CodeWhispererConstants.enterJavaHomeChatMessage
-        } ${transformByQState.getSourceJDKVersion()}. \n`
+    static createJavaHomePrompt = (type: string): string => {
+        const jdkVersion =
+            type === 'java-home-not-set'
+                ? transformByQState.getSourceJDKVersion()
+                : transformByQState.getTargetJDKVersion()
+        let javaHomePrompt = `${CodeWhispererConstants.enterJavaHomeChatMessage} ${jdkVersion}. \n`
         if (os.platform() === 'win32') {
-            javaHomePrompt += CodeWhispererConstants.windowsJavaHomeHelpChatMessage.replace(
-                'JAVA_VERSION_HERE',
-                transformByQState.getSourceJDKVersion()!
-            )
-        } else {
-            const jdkVersion = transformByQState.getSourceJDKVersion()
+            javaHomePrompt += CodeWhispererConstants.windowsJavaHomeHelpChatMessage
+        } else if (os.platform() === 'darwin') {
             if (jdkVersion === JDKVersion.JDK8) {
-                javaHomePrompt += ` ${CodeWhispererConstants.nonWindowsJava8HomeHelpChatMessage}`
+                javaHomePrompt += ` ${CodeWhispererConstants.macJava8HomeHelpChatMessage}`
             } else if (jdkVersion === JDKVersion.JDK11) {
-                javaHomePrompt += ` ${CodeWhispererConstants.nonWindowsJava11HomeHelpChatMessage}`
+                javaHomePrompt += ` ${CodeWhispererConstants.macJava11HomeHelpChatMessage}`
+            } else if (jdkVersion === JDKVersion.JDK17) {
+                javaHomePrompt += ` ${CodeWhispererConstants.macJava17HomeHelpChatMessage}`
             }
+        } else {
+            javaHomePrompt += ` ${CodeWhispererConstants.linuxJavaHomeHelpChatMessage}`
         }
         return javaHomePrompt
     }

@@ -39,7 +39,7 @@ export interface CodeWhispererConfig {
 
 export const defaultServiceConfig: CodeWhispererConfig = {
     region: 'us-east-1',
-    endpoint: 'https://rts.gamma-us-east-1.codewhisperer.ai.aws.dev/',
+    endpoint: 'https://codewhisperer.us-east-1.amazonaws.com/', // TO-DO: try if CSB works in alpha or gamma?
 }
 
 export function getCodewhispererConfig(): CodeWhispererConfig {

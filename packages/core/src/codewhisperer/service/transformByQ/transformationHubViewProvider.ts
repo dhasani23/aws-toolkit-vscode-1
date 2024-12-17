@@ -186,6 +186,8 @@ export class TransformationHubViewProvider implements vscode.WebviewViewProvider
                 return '<p><span class="spinner status-PENDING"> ↻ </span></p>'
             case 'COMPLETED':
                 return '<p><span class="status-COMPLETED"> ✓ </span></p>'
+            case 'AWAITING_CLIENT_ACTION':
+                return '<p><span class="spinner status-PENDING"> ↻ </span></p>'
             case 'FAILED':
             default:
                 return '<p><span class="status-FAILED"> 𐔧 </span></p>'

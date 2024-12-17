@@ -11,6 +11,7 @@ export enum ConversationState {
     COMPILING,
     JOB_SUBMITTED,
     WAITING_FOR_INPUT,
+    PROMPT_JAVA_TARGET,
 }
 
 export interface ProjectDetails {

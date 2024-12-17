@@ -37,6 +37,7 @@ import DependencyVersions from '../../../models/dependencies'
 export type StaticTextResponseType =
     | 'transform'
     | 'java-home-not-set'
+    | 'java-target-not-set'
     | 'start-transformation-confirmed'
     | 'job-transmitted'
     | 'end-HIL-early'
@@ -205,6 +206,23 @@ export class Messenger {
             ],
         })
 
+        formItems.push({
+            id: 'GumbyTransformClientSideBuildForm',
+            type: 'select',
+            title: CodeWhispererConstants.clientSideBuildEnvironmentTitle,
+            mandatory: true,
+            options: [
+                {
+                    value: 'Verify Each Iteration',
+                    label: 'Verify Each Iteration',
+                },
+                {
+                    value: 'Verify After All Iterations (Accept All)',
+                    label: 'Verify After All Iterations (Accept All)',
+                },
+            ],
+        })
+
         this.dispatcher.sendAsyncEventProgress(
             new AsyncEventProgressMessage(tabID, {
                 inProgress: true,
@@ -321,7 +339,10 @@ export class Messenger {
 
         switch (type) {
             case 'java-home-not-set':
-                message = MessengerUtils.createJavaHomePrompt()
+                message = MessengerUtils.createJavaHomePrompt('java-home-not-set')
+                break
+            case 'java-target-not-set':
+                message = MessengerUtils.createJavaHomePrompt('java-target-not-set')
                 break
             case 'end-HIL-early':
                 message = `I will continue transforming your code without upgrading this dependency.`
@@ -481,6 +502,17 @@ export class Messenger {
     `
 
         this.dispatcher.sendChatMessage(new ChatMessage({ message, messageType: 'prompt' }, tabID))
+    }
+
+    public sendClientSideBuildSelectionMessage(clientSideBuildSelection: string, tabID: string) {
+        let message = ''
+        if (clientSideBuildSelection === 'Verify Each Iteration') {
+            message = `Okay, I will obtain your permission prior to executing intermediate builds locally.`
+        } else {
+            message = `Okay, I will automatically build all intermediate changes locally.`
+        }
+        message += '\n You can inspect the change being built in the Transformation Hub'
+        this.dispatcher.sendChatMessage(new ChatMessage({ message, messageType: 'ai-prompt' }, tabID))
     }
 
     public sendHumanInTheLoopInitialMessage(tabID: string, codeSnippet: string) {

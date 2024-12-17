@@ -321,6 +321,7 @@ export class ZipManifest {
     version: string = '1.0'
     hilCapabilities: string[] | undefined = ['HIL_1pDependency_VersionUpgrade']
     // transformCapabilities: string[] = ['EXPLAINABILITY_V1'] // TO-DO: uncomment this once Gradle plan becomes dynamic
+    transformCapabilities: string[] = ['CLIENT_SIDE_BUILD']
     buildTool: BuildSystem | undefined = undefined
 }
 
@@ -412,6 +413,12 @@ export class TransformByQState {
     private planSteps: TransformationSteps | undefined = undefined
 
     private intervalId: NodeJS.Timeout | undefined = undefined
+
+    private clientSideBuildSelection: string = ''
+
+    private javaTargetPath: string = ''
+
+    private waitingForClientSideBuildAuthorization: boolean = false
 
     public isNotStarted() {
         return this.transformByQState === TransformByQStatus.NotStarted
@@ -537,6 +544,18 @@ export class TransformByQState {
         return this.intervalId
     }
 
+    public getClientSideBuildSelection() {
+        return this.clientSideBuildSelection
+    }
+
+    public getJavaTargetPath() {
+        return this.javaTargetPath
+    }
+
+    public getWaitingForClientSideBuildAuthorization() {
+        return this.waitingForClientSideBuildAuthorization
+    }
+
     public appendToLocalBuildErrorLog(message: string) {
         this.localBuildErrorLog += `${message}\n\n`
     }
@@ -655,6 +674,18 @@ export class TransformByQState {
 
     public setPreBuildLogFilePath(path: string) {
         this.preBuildLogFilePath = path
+    }
+
+    public setWaitingForClientSideBuildAuthorization(waiting: boolean) {
+        this.waitingForClientSideBuildAuthorization = waiting
+    }
+
+    public setClientSideBuildSelection(selection: string) {
+        this.clientSideBuildSelection = selection
+    }
+
+    public setJavaTargetPath(javaTargetPath: string) {
+        this.javaTargetPath = javaTargetPath
     }
 
     public resetPlanSteps() {
