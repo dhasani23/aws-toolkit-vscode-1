@@ -25,7 +25,6 @@ import {
     postTransformationJob,
     processTransformFormInput,
     startTransformByQ,
-    stopTransformByQ,
     validateCanCompileProject,
 } from '../../../codewhisperer/commands/startTransformByQ'
 import {
@@ -50,7 +49,7 @@ import { openUrl } from '../../../shared/utilities/vsCodeUtils'
 import { telemetry, CodeTransformBuildSystem } from '../../../shared/telemetry/telemetry'
 import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
 import { CodeTransformTelemetryState } from '../../telemetry/codeTransformTelemetryState'
-import { getAuthType } from '../../../codewhisperer/service/transformByQ/transformApiHandler'
+import { getAuthType, stopTransformByQ } from '../../../codewhisperer/service/transformByQ/transformApiHandler'
 import DependencyVersions from '../../models/dependencies'
 import { checkBuildSystem } from '../../../codewhisperer/service/transformByQ/transformFileHandler'
 // These events can be interactions within the chat or elsewhere in the IDE

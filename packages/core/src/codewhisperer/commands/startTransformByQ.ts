@@ -32,7 +32,6 @@ import {
     pollTransformationJob,
     resumeTransformationJob,
     startJob,
-    stopJob,
     throwIfCancelled,
     updateJobHistory,
     uploadPayload,
@@ -45,9 +44,9 @@ import {
     prepareProjectDependencies,
     runMavenDependencyUpdateCommands,
 } from '../service/transformByQ/transformMavenHandler'
-import { CodeTransformCancelSrcComponents, telemetry } from '../../shared/telemetry/telemetry'
+import { telemetry } from '../../shared/telemetry/telemetry'
 import { CodeTransformTelemetryState } from '../../amazonqGumby/telemetry/codeTransformTelemetryState'
-import { CancelActionPositions, calculateTotalLatency } from '../../amazonqGumby/telemetry/codeTransformTelemetry'
+import { calculateTotalLatency } from '../../amazonqGumby/telemetry/codeTransformTelemetry'
 import { MetadataResult } from '../../shared/telemetry/telemetryClient'
 import { submitFeedback } from '../../feedback/vue/submitFeedback'
 import { placeholder } from '../../shared/vscode/commands2'
@@ -756,49 +755,6 @@ export async function cleanupTransformationJob() {
         CodeTransformTelemetryState.instance.getStartTime()
     )
     CodeTransformTelemetryState.instance.resetCodeTransformMetaDataField()
-}
-
-export async function stopTransformByQ(
-    jobId: string,
-    cancelSrc: CancelActionPositions = CancelActionPositions.BottomHubPanel
-) {
-    if (transformByQState.isRunning()) {
-        getLogger().info('CodeTransformation: User requested to stop transformation. Stopping transformation.')
-        transformByQState.setToCancelled()
-        transformByQState.setPolledJobStatus('CANCELLED')
-        await vscode.commands.executeCommand('setContext', 'gumby.isStopButtonAvailable', false)
-        try {
-            await stopJob(jobId)
-            void vscode.window
-                .showErrorMessage(
-                    CodeWhispererConstants.jobCancelledNotification,
-                    CodeWhispererConstants.amazonQFeedbackText
-                )
-                .then(choice => {
-                    if (choice === CodeWhispererConstants.amazonQFeedbackText) {
-                        void submitFeedback(placeholder, CodeWhispererConstants.amazonQFeedbackKey)
-                    }
-                })
-        } catch (err) {
-            void vscode.window
-                .showErrorMessage(
-                    CodeWhispererConstants.errorStoppingJobNotification,
-                    CodeWhispererConstants.amazonQFeedbackText
-                )
-                .then(choice => {
-                    if (choice === CodeWhispererConstants.amazonQFeedbackText) {
-                        void submitFeedback(placeholder, CodeWhispererConstants.amazonQFeedbackKey)
-                    }
-                })
-            getLogger().error(`CodeTransformation: Error stopping transformation ${err}`)
-        } finally {
-            telemetry.codeTransform_jobIsCancelledByUser.emit({
-                codeTransformCancelSrcComponents: cancelSrc as CodeTransformCancelSrcComponents,
-                codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
-                result: MetadataResult.Pass,
-            })
-        }
-    }
 }
 
 async function setContextVariables() {

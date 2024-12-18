@@ -35,7 +35,7 @@ import {
 import { sleep } from '../../../shared/utilities/timeoutUtils'
 import AdmZip from 'adm-zip'
 import globals from '../../../shared/extensionGlobals'
-import { CredentialSourceId, telemetry } from '../../../shared/telemetry/telemetry'
+import { CodeTransformCancelSrcComponents, CredentialSourceId, telemetry } from '../../../shared/telemetry/telemetry'
 import { CodeTransformTelemetryState } from '../../../amazonqGumby/telemetry/codeTransformTelemetryState'
 import { calculateTotalLatency, CancelActionPositions } from '../../../amazonqGumby/telemetry/codeTransformTelemetry'
 import { MetadataResult } from '../../../shared/telemetry/telemetryClient'
@@ -50,8 +50,9 @@ import { fsCommon } from '../../../srcShared/fs'
 import { ChatSessionManager } from '../../../amazonqGumby/chat/storages/chatSession'
 import { convertToTimeString, encodeHTML } from '../../../shared/utilities/textUtilities'
 import { spawnSync } from 'child_process'
-import { stopTransformByQ } from '../../commands/startTransformByQ'
 import { DiffModel } from './transformationResultsViewProvider'
+import { submitFeedback } from '../../../feedback/vue/submitFeedback'
+import { placeholder } from '../../../shared/vscode/commands2'
 
 export function getSha256(buffer: Buffer) {
     const hasher = crypto.createHash('sha256')
@@ -924,8 +925,7 @@ async function runClientSideBuild(modulePath: string, clientInstructionArtifactI
             // baseCommand will be one of: '.\mvnw.cmd', './mvnw', 'mvn', '.\gradlew.cmd'. './gradlew', 'gradle'
             const baseCommand = transformByQState.getBuildSystemCommand()
             transformByQState.appendToLocalBuildErrorLog(`Running local build with ${baseCommand}`)
-            const args =
-                transformByQState.getBuildSystem() === BuildSystem.Maven ? ['test'] : ['TO-DO:something-for-gradle']
+            const args = transformByQState.getBuildSystem() === BuildSystem.Maven ? ['test'] : ['build']
             let environment = process.env
             // set java home to target java version for intermediate builds
             environment = { ...process.env, JAVA_HOME: transformByQState.getJavaTargetPath() }
@@ -1041,5 +1041,48 @@ async function updateManifestFile(exitCode: number, buildLogFileName: string, ma
         console.log('Manifest file created successfully')
     } catch (err) {
         console.error('Error writing manifest file:', err)
+    }
+}
+
+export async function stopTransformByQ(
+    jobId: string,
+    cancelSrc: CancelActionPositions = CancelActionPositions.BottomHubPanel
+) {
+    if (transformByQState.isRunning()) {
+        getLogger().info('CodeTransformation: User requested to stop transformation. Stopping transformation.')
+        transformByQState.setToCancelled()
+        transformByQState.setPolledJobStatus('CANCELLED')
+        await vscode.commands.executeCommand('setContext', 'gumby.isStopButtonAvailable', false)
+        try {
+            await stopJob(jobId)
+            void vscode.window
+                .showErrorMessage(
+                    CodeWhispererConstants.jobCancelledNotification,
+                    CodeWhispererConstants.amazonQFeedbackText
+                )
+                .then(choice => {
+                    if (choice === CodeWhispererConstants.amazonQFeedbackText) {
+                        void submitFeedback(placeholder, CodeWhispererConstants.amazonQFeedbackKey)
+                    }
+                })
+        } catch (err) {
+            void vscode.window
+                .showErrorMessage(
+                    CodeWhispererConstants.errorStoppingJobNotification,
+                    CodeWhispererConstants.amazonQFeedbackText
+                )
+                .then(choice => {
+                    if (choice === CodeWhispererConstants.amazonQFeedbackText) {
+                        void submitFeedback(placeholder, CodeWhispererConstants.amazonQFeedbackKey)
+                    }
+                })
+            getLogger().error(`CodeTransformation: Error stopping transformation ${err}`)
+        } finally {
+            telemetry.codeTransform_jobIsCancelledByUser.emit({
+                codeTransformCancelSrcComponents: cancelSrc as CodeTransformCancelSrcComponents,
+                codeTransformSessionId: CodeTransformTelemetryState.instance.getSessionId(),
+                result: MetadataResult.Pass,
+            })
+        }
     }
 }

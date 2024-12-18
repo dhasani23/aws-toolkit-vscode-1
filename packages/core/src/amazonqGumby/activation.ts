@@ -7,12 +7,12 @@ import * as vscode from 'vscode'
 import { Commands } from '../shared/vscode/commands2'
 import { TransformationHubViewProvider } from '../codewhisperer/service/transformByQ/transformationHubViewProvider'
 import { ExtContext } from '../shared/extensions'
-import { stopTransformByQ } from '../codewhisperer/commands/startTransformByQ'
 import { transformByQState } from '../codewhisperer/models/model'
 import { ProposedTransformationExplorer } from '../codewhisperer/service/transformByQ/transformationResultsViewProvider'
 import { CodeTransformTelemetryState } from './telemetry/codeTransformTelemetryState'
 import { telemetry } from '../shared/telemetry/telemetry'
 import { CancelActionPositions } from './telemetry/codeTransformTelemetry'
+import { stopTransformByQ } from '../codewhisperer/service/transformByQ/transformApiHandler'
 
 export async function activate(context: ExtContext) {
     void vscode.commands.executeCommand('setContext', 'gumby.wasQCodeTransformationUsed', false)
